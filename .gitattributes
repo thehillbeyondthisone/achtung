@@ -1,0 +1,9 @@
+# Keep LF line endings in the working copy regardless of core.autocrlf
+* text=auto eol=lf
+
+# Binary assets
+*.blend binary
+*.glb binary
+*.jpg binary
+*.png binary
+*.gif binary

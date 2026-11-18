@@ -1,0 +1,17 @@
+# Blender autosave/backup copies
+*.blend1
+*.blend2
+
+# Mirrored third-party archive material (kept local; re-fetch with tools/fetch-tg22-3.mjs, see docs/SOURCES.md)
+docs/sources/
+
+# Node
+node_modules/
+
+# Local Claude Code settings
+.claude/settings.local.json
+
+# OS clutter
+Thumbs.db
+desktop.ini
+.DS_Store

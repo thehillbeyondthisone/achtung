@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "u505",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["tools/serve.mjs"],
+      "port": 8505
+    },
+    {
+      "name": "u505-glb",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["tools/serve.mjs", "8507"],
+      "port": 8507
+    }
+  ]
+}
