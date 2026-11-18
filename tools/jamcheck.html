@@ -1,0 +1,161 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>U-505 jam browser checks</title>
+<style>
+  body { margin: 0; background: #122126; color: #eee; font: 14px system-ui; display: flex; height: 100vh; }
+  aside { width: 350px; padding: 16px; overflow: auto; flex-shrink: 0; }
+  h1 { font-size: 20px; } button { margin: 3px; padding: 8px; cursor: pointer; }
+  iframe { flex: 1; border: 0; min-width: 0; } pre { white-space: pre-wrap; font-size: 12px; }
+  .pass { color: #9ee6b3; } .fail { color: #ff9b8c; }
+</style>
+<aside>
+  <h1>Jam browser checks</h1>
+  <p>Loads the shipped index.html and GLB. The iframe deliberately refuses pointer lock to exercise embedded drag look. Test setup uses the existing debug hooks; keyboard checks use the game's event handlers.</p>
+  <button id="run" disabled>Run browser checks</button>
+  <button id="boat" disabled>Show detailed boat</button>
+  <button id="deck" disabled>Show playable deck</button>
+  <button id="loss" disabled>Prepare loss for native R</button>
+  <button id="fallback">Load primitive fallback</button>
+  <details><summary>Live input, audio and model diagnostics</summary><pre id="status">Loading build…</pre></details>
+  <div id="results"></div>
+</aside>
+<iframe id="game" title="Actual jam build" sandbox="allow-scripts allow-same-origin" src="../?sources=online"></iframe>
+<script type="module">
+const frame = document.querySelector('#game'), status = document.querySelector('#status');
+const results = document.querySelector('#results'), run = document.querySelector('#run');
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+const game = () => frame.contentWindow.__u505;
+const assert = (ok, message) => { if (!ok) throw Error(message); };
+const key = code => {
+  const win = frame.contentWindow;
+  win.dispatchEvent(new win.KeyboardEvent('keydown', { code, bubbles: true }));
+  win.dispatchEvent(new win.KeyboardEvent('keyup', { code, bubbles: true }));
+};
+function dismiss() { for (let i = 0; i < 5 && game().introUp; i++) game().dismissIntro(); game().timeScale = 0; }
+function stage(where) { game().jump(where); dismiss(); game().tick(.01); }
+function deck() {
+  stage('act3'); const u = game(), hull = u.data.compartments.hull;
+  u.aim(hull.hatch.x_m, hull.floor_height_m + 1.4, 0);
+  assert(u.target?.type === 'ladder', 'control-room ladder not targeted');
+  u.use('F'); u.tick(.01); assert(u.story.onDeck, 'F did not climb out');
+}
+function lose() {
+  const u = game(); u.sim.valves.forEach((v, i) => { if (v.kind === 'vent') u.sim.s.valve[i] = 1; });
+  u.sim.advance(3600); u.tick(.01); assert(u.sim.s.status === 'lost', 'loss setup did not lose the boat');
+}
+function boatInfo() {
+  const model = game()?.exterior.scene.getObjectByName('U-505 model');
+  let meshes = 0, triangles = 0, textures = 0;
+  model?.traverse(m => {
+    if (!m.isMesh) return; meshes++;
+    triangles += (m.geometry.index?.count ?? m.geometry.attributes.position.count) / 3;
+    if (m.material.map?.image?.width > 0) textures++;
+  });
+  return { loaded: !!model, visible: model?.visible, meshes, triangles, textures };
+}
+function meter() {
+  const u = game(); if (!u) return;
+  status.textContent = JSON.stringify({ act: u.story.act, clock: u.sim.clock(), paused: u.playPaused,
+    pointer: frame.contentDocument.pointerLockElement ? 'captured' : 'released',
+    hint: frame.contentDocument.querySelector('#hint').textContent,
+    sound: u.audio.output(), channels: u.audio.levels(), boat: boatInfo() }, null, 2);
+}
+setInterval(meter, 300);
+frame.addEventListener('load', async () => {
+  for (let i = 0; i < 100 && !game(); i++) await sleep(100);
+  for (const id of ['run', 'boat', 'deck', 'loss']) document.getElementById(id).disabled = !game();
+  const fallback = new URL(frame.src).searchParams.get('boatart') === '0';
+  document.querySelector('#fallback').textContent = fallback ? 'Reload detailed build' : 'Load primitive fallback';
+  run.disabled ||= fallback;
+});
+async function check(name, fn) {
+  const row = document.createElement('p'); row.textContent = 'Checking ' + name + '…'; results.append(row);
+  try { await fn(); row.className = 'pass'; row.textContent = 'PASS ' + name; }
+  catch (error) { row.className = 'fail'; row.textContent = 'FAIL ' + name + ': ' + error.message; }
+}
+run.onclick = async () => {
+  run.disabled = true; results.replaceChildren();
+  // Runs synchronously under this click's user activation, so autoplay remains a real test.
+  frame.contentDocument.querySelector('#board-game')?.click(); dismiss(); game().audio.start();
+  await check('Boarding audio starts and produces an unclipped signal', async () => {
+    stage('act2'); game().audio.output(); await sleep(1400);
+    const out = game().audio.output(); assert(out.state === 'running' && out.rms > .001 && out.peak < 1, JSON.stringify(out));
+    assert(game().audio.levels().strainer > 0, 'strainer is silent');
+  });
+  await check('Refused mouse capture enables drag look and release stops it', async () => {
+    const win = frame.contentWindow, u = game(), canvas = frame.contentDocument.querySelector('#view');
+    assert(frame.contentDocument.querySelector('#hint').textContent.includes('drag'), 'fallback hint missing');
+    const yaw = u.player.yaw;
+    canvas.dispatchEvent(new win.MouseEvent('mousedown', { button: 0, clientX: 400, clientY: 300, bubbles: true }));
+    win.dispatchEvent(new win.MouseEvent('mousemove', { clientX: 550, clientY: 330 }));
+    assert(u.player.yaw !== yaw, 'drag did not turn camera');
+    win.dispatchEvent(new win.MouseEvent('mouseup')); const stopped = u.player.yaw;
+    win.dispatchEvent(new win.MouseEvent('mousemove', { clientX: 650, clientY: 330 }));
+    assert(u.player.yaw === stopped, 'camera kept turning after release');
+  });
+  await check('WASD movement works with drag fallback', () => {
+    const u = game(), x = u.player.x; u.keys.add('KeyW'); u.tick(.3); u.keys.clear();
+    assert(Math.abs(u.player.x - x) > .05, 'W did not move the player');
+  });
+  await check('M mutes the output and restores it', async () => {
+    key('KeyM'); await sleep(900); assert(game().audio.output().rms < .0001, 'mute still produces sound');
+    key('KeyM'); await sleep(900); assert(game().audio.output().rms > .001, 'unmute is silent');
+  });
+  await check('Pause freezes the clock and silences audio', async () => {
+    key('KeyP'); const t = game().sim.s.t; await sleep(900);
+    assert(game().playPaused && game().sim.s.t === t && game().audio.output().rms < .0001, 'pause failed');
+    key('Enter'); game().timeScale = 0; await sleep(900);
+    assert(!game().playPaused && game().audio.output().rms > .001, 'resume failed');
+  });
+  await check('Notebook silences audio and restores it on close', async () => {
+    key('KeyG'); await sleep(900); assert(game().audio.output().rms < .0001, 'notebook is not silent');
+    key('KeyG'); await sleep(900); assert(game().audio.output().rms > .001, 'notebook close is silent');
+  });
+  await check('Campaign approach has sea ambience without interior sounds', async () => {
+    stage('act1'); await sleep(1400); const levels = game().audio.levels(), out = game().audio.output();
+    assert(levels.sea > .1 && levels.diesel === 0 && levels.strainer === 0 && out.rms > .001, JSON.stringify({levels, out}));
+  });
+  await check('Detailed boat loads with its textures', async () => {
+    for (let i = 0; i < 100 && !boatInfo().loaded; i++) await sleep(100);
+    const b = boatInfo(); assert(b.loaded && b.meshes > 0 && b.triangles > 50000 && b.textures > 0, JSON.stringify(b));
+    stage('surfacing'); assert(boatInfo().visible, 'model is hidden in surfacing');
+  });
+  await check('Playable deck uses the detailed model and E returns below', () => {
+    deck(); const u = game(), model = u.exterior.scene.getObjectByName('U-505 model');
+    assert(model.visible && Math.abs(model.position.y + 2.225) < .001 && u.exterior.camera.near === .08, 'deck model alignment failed');
+    u.use(); u.tick(.01); assert(!u.story.onDeck && u.exterior.camera.near === .3, 'E did not return below');
+  });
+  await check('Act 2 loss and R retry return to boarding', () => {
+    stage('act2'); lose(); key('KeyR'); const u = game();
+    assert(u.story.act === 2 && u.introUp && u.sim.clock() === '11:46:00' && u.sim.s.status === 'afloat', 'boarding retry failed');
+  });
+  await check('Act 3 retry restores checkpoint water and hatches', () => {
+    stage('act3'); const before = JSON.stringify({ V: game().sim.s.V, doors: game().sim.s.doorOpen });
+    lose(); key('KeyR'); const u = game();
+    assert(u.story.act === 3 && u.introUp && u.sim.clock() === '12:40:00', 'Act 3 retry failed');
+    assert(JSON.stringify({ V: u.sim.s.V, doors: u.sim.s.doorOpen }) === before, 'checkpoint changed');
+  });
+  await check('Tow reached through Act 3 has sea ambience and the detailed boat', async () => {
+    stage('act3'); game().sim.advanceTo('14:23:00'); game().tick(.01); await sleep(1400);
+    assert(game().exterior.towing && boatInfo().visible && game().audio.levels().sea > .1 && game().audio.output().rms > .001, 'tow model or sound missing');
+  });
+  await check('7 June loss and R retry reset the rescue', () => {
+    stage('awash'); const initial = JSON.stringify(game().sim.s.V); lose(); key('KeyR'); const u = game();
+    assert(u.story.act === 4 && u.introUp && u.sim.s.status === 'afloat' && JSON.stringify(u.sim.s.V) === initial, 'rescue retry failed');
+  });
+  await check('Final R returns to the title', () => {
+    game().jump('final'); key('KeyR');
+    assert(game().introUp && frame.contentDocument.querySelector('#board-game'), 'final restart failed');
+  });
+  await check('Restart title is silent', async () => {
+    await sleep(3000); assert(game().audio.output().rms < .0001, 'boarding sounds leaked through the title');
+  });
+  run.disabled = false; meter();
+};
+document.querySelector('#boat').onclick = () => { stage('surfacing'); game().audio.start(); };
+document.querySelector('#deck').onclick = () => { deck(); game().audio.start(); };
+document.querySelector('#loss').onclick = () => { stage('act2'); lose(); };
+document.querySelector('#fallback').onclick = () => {
+  frame.src = new URL(frame.src).searchParams.get('boatart') === '0' ? '../?sources=online' : '../?boatart=0&sources=online';
+};
+</script>

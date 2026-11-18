@@ -30,6 +30,13 @@
     - For the textured version, first run `exec(open(D+'bake_textures.py').read(),G); G['bake_all'](r'<repo>\art\textures')` after every `build()` (about 2 min), then export with `textured=True`.
     - Save bakes with `Image.save`: `save_render` applies the AgX view transform.
   - Viewer: launch config `u505-glb` (port 8507), then `/tools/glbview.html?file=art/u505_exterior_draco.glb`.
+  - In-game model: `G['export_game_glb'](r'<repo>\art\u505_game.glb')` (after `bake_all`).
+    - `index.html` loads it in the `exterior` IIFE (`loadBoatArt`) for Act 1, the tow and the walkable deck. `?boatart=0` disables it.
+    - Placement: model y = scene waterline in the `uboat` frame − 4.30 (−0.8 in Act 1, −1.55 in the tow); on deck y = −`MODEL_AXIS` (−2.225), fixed to the hull frame.
+    - The walkable deck is `deckLayout`, a port of the model's geometry. If you change the model's deck, tower, hatch, ladders or canisters, update `deckLayout` to match. The obstacle list and ladder positions there are copied from tower.py and deck.py.
+    - Deck ↔ tower ladders are E actions (`climbs` and `nearClimb`). Walk-on ramps beside the tower don't work on the narrow walkway: they either lift the player or never catch.
+    - Test the deck in the real poses: Act 3 is 21.1° stern-down and 7 June starts at 22.6°, so the aft deck is flooded. A level pose hides reachability problems.
+    - With the model loaded, shader programs settle at 31.
   - Gotcha: `mesh.materials.clear()` resets every face to slot 0, so read the face slots first.
 
 ## Conventions

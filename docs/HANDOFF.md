@@ -1,6 +1,6 @@
 # U-505: Boarding Party — development handoff
 
-Updated 17 November 2026.
+Updated 18 November 2026.
 
 This handoff reflects the current game, the session notes, and the November 17 accuracy review. The original external design handoff remains unavailable. See the evidence review below for source disagreements and open questions.
 
@@ -10,10 +10,10 @@ The entire game is in `index.html`. It uses Three.js 0.160.0 from jsDelivr throu
 
 | Stage | Implemented behavior |
 | --- | --- |
-| Act 1, 11:09–11:35, 4 June | About 150 seconds on Pillsbury's deck. The camera tightens as U-505 surfaces, with a layered wake, spray, and animated swell. Framing and distance are staged. The captions paraphrase the reports and display GCT. Enter skips to boarding. |
-| Act 2, 11:46–12:40 | Stop inflow and propulsion, recover items, and deal with the scuttling equipment and charge placeholders. The game puts the player below deck immediately at the selected first-boarding time. |
-| Act 3, 12:40–14:23 | Continues with the actual water and hatch states from Act 2. Read the flood survey, use the two handy-billies on labeled intake connections, and climb onto the playable deck to inspect the stern and wait for the tow. The deck and tow scene show the run's trim and draught. The debrief reports reserve and remaining diesel-room water. |
-| Act 4 | Tow-wire break around midnight, Gallery's inspection later on 5 June, 7 June pumping, and Bermuda on 19 June. The playable rescue uses electric submersibles powered by Abnaki. Climb out onto the same deck and hand off after rigging at least one pump. The crew redirects idle intakes during the recovery. The portable pump count, initial water, timing, recovery target, and intake handoff are game assumptions. |
+| Act 1, 11:09–11:35, 4 June | Choose **Watch the approach** on the title screen to spend about 150 seconds on Pillsbury's deck. The camera tightens as U-505 surfaces, with a layered wake, spray, and animated swell. Framing and distance are staged. The captions paraphrase the reports and display GCT. Enter skips to boarding. |
+| Act 2, 11:46–12:40 | **Board U-505** is the default. It starts at 11:46 below deck, facing the open diesel hatch. On-screen orders lead from the strainer cover to the diesel levers, the flood valve when enabled, and the ladder. Aim at the ladder and press F twice to wait for salvage. The notebook lists the other orders. |
+| Act 3, 12:40–14:23 | Carries over the water and hatch states from Act 2. Read the flood survey, take a handy-billy from the foot of the ladder, and connect it to a flooded room's intake. You can rig a second pump or aim at the control-room ladder and press F to climb out. Press F again on deck to fast-forward to the tow. The debrief opens on the cutaway at 14:23 with water aboard and reserve buoyancy. |
+| Act 4 | From the tow debrief, continue directly to the 7 June rescue or watch the tow-wire break and Gallery's 5 June inspection first. The rescue uses electric submersibles powered by Abnaki. Climb out onto the same deck and hand off after rigging at least one pump. The crew redirects idle intakes during the recovery. The portable pump count, initial water, timing, recovery target, and intake handoff are game assumptions. The story ends at Bermuda on 19 June. |
 | Final screen | The run compared row by row with the historical account, plus codex completion. R restarts the story. |
 
 The notebook (G) pauses play and contains orders, glossary, and 25 codex entries with evidence labels. Source links open downloaded reports when available. The generated assumptions list covers 60 flagged records, including mixed field statuses such as item weights and positions. Remaining source gaps are marked in the notebook.
@@ -44,6 +44,12 @@ The debug panel has two Act 3 jumps, **water aft** and **diesel pocket**. Both r
 
 ### Verification status
 
+**18 November jam browser pass:** opened the actual build on a fresh local origin in a new foreground Chrome window. A native click captured the mouse; Escape released it and opened Pause. An embedded pass deliberately refused capture and verified drag look, release, and movement. A browser-delivered R retried a real loss screen. The detailed GLB loaded as 10 meshes / 79,434 triangles with two textured meshes, rendered in surfacing, tow and on the playable deck, and E returned below. The explicit `?boatart=0` fallback also rendered. No model-loading or shader blocker was observed.
+
+Fixed missing campaign approach/tow sea ambience and interior audio leaking behind restart/interstitial cards. The approach now updates the audio mixer every frame; exterior shots select sea ambience, and cards silence both sea and interior channels. WebAudio output was measured in the browser: nonzero, unclipped boarding and exterior samples; mute, Pause and notebook output settled to silence and resumed correctly. This verifies the signal path, not listening quality through the user's speakers.
+
+Open `tools/jamcheck.html` through `tools/serve.mjs` and click **Run browser checks** for the repeatable 15-check browser suite. It loads the shipped `index.html` and GLB without rewriting them and uses existing debug hooks for scenario setup. It covers embedded input, live output samples, the detailed model and deck hatch loop, Act 2/3/7 June loss and retry, checkpoint water/hatches, reaching the tow, final restart and a silent restart title. Its manual controls support browser input and visual checks. `__u505.audio.output()` supplies a lazy analyser tap for QA and never starts or unmutes audio. Simulation and evidence checks still pass. A full real-time playthrough, subjective listening, and foreground frame-time profiling remain separate work.
+
 All 32 flooding checks, two turbulence checks, and the evidence checker pass. The evidence checker covers the 25 codex entries, 60 assumptions, and local links. The simulation checks exercise extracted logic and include the two Act 3 routes with and without placeholders.
 
 Representative current results:
@@ -69,7 +75,7 @@ An earlier browser run reached Bermuda using drag-to-look and keyboard controls,
 - Inline data blocks: timeline, compartments, systems, scenario, items, charges, act1, act2, act3, epilogue, codex, glossary. Search their `data-*` IDs.
 - `U505Sim.create(data, opts)` supplies the flooding model and plain-JSON `sim.s` state. Fixed step: 10 Hz. `sim.startFrom()` supports the 7 June setup; `sim.setClockBase()` changes clock origin. `reset()` restores the original clock, so do not cache `sim.t0` across resets.
 - `U505Act.create(sim, data, opts)` controls Act 2/3. Key methods include `beginAct3()`, `takePump()`, and `rigPump()`. `U505Act.awash(sim, data)` controls 7 June.
-- Story orchestration is in the module through `story.act` 1–5, `showCard()`, `restartStage()`, and `jump()`. Act 1, the playable U-505 deck, and the tow scene share the exterior renderer. The weather deck and bridge stairs are simplified for movement. Walkable heights and rails share the deck profile, and exterior trim and waterline follow the simulation.
+- Story orchestration is in the module through `story.act` 1–5, `showCard()`, `restartStage()`, and `jump()`. Act 1, the playable U-505 deck, and the tow scene share the exterior renderer. The playable deck follows the Blender model: `deckLayout` in the exterior block ports its deck sheer, width and camber, tower plan and platform heights. There are three levels: weather deck, lower Wintergarten and bridge with the upper platform. The two platforms are joined by walk-on ladders. Between the deck and the tower, the player presses E at a ladder's foot or top ("[E] Climb up the ladder"). It refuses if the landing is under water. Collision covers the tower, guns, periscope standards, hatches and bitts. The player climbs out onto the bridge beside the hatch. Two accesses are gameplay fittings, not from the photographs. The first is the side ladders from the upper platform down to the deck walkway at x −2.5. The second is the rungs up the fairwater and over the bulwark at x 2.6. At the game's 21–23° stern-down trims the aft rungs land in the sea; these keep the dry forward deck reachable, and the forward rungs keep the route back to the hatch open as she settles on 7 June. Exterior trim and waterline follow the simulation.
 - Debug console: `__u505.jump('act1'|'surfacing'|'act2'|'act3'|'gallery'|'awash'|'bermuda'|'final')`, `tick(dt)`, `aim(x,z,side)`, `dismissIntro()`, `view(compartmentId)`, `stats()`, `bench(compartmentId)`, and `audio.levels()`. The debug panel's `surfacing` button opens a view of the boat just after it clears the water.
 - Simulation coordinates use positive x toward the bow and z above the pressure hull's inside bottom. Three.js X is starboard, Y up, and Z aft. Positive trim is stern down and positive heel is starboard down.
 - Keep valve fractions (`sim.s.valve`) separate from the existing `doorOpen`, `sourceOpen`, and `drainOpen` booleans. A line's valve list gates its area by the smallest opening.
@@ -110,7 +116,7 @@ The debug **Audit UVs and normals** button validates UV/normal attribute counts,
 
 Chrome review covered all eight rooms, rebuilt pumps in both salvage setups, 7 June's high trim, the playable deck, and returning below. Sampled 1837 × 881 room render/readback timings ranged from 2.16–11.19 ms, with the control-room sample reaching 275 draws and about 35,000 triangles. After the first exterior visit, programs settled at 24 and remained at 24 on motor/control revisits. No shader errors were observed; the existing browser messaging-connection error appeared again. These are synchronous render measurements, not continuous foreground FPS. All 31 simulation checks and the evidence checker pass.
 
-- The release title is **U-505: Boarding Party**. The game draws its own models, signs, cutaway, and effects. Serve only `index.html` and link to `?sources=online` for a public preview with the notebook's external citations. The downloaded research archive remains available in the local preview.
+- The release title is **U-505: Boarding Party**. The game draws its own interiors, signs, cutaway, and effects. The surfacing and tow scenes load one external model, `art/u505_game.glb` (about 1 MB, built from `tools/blender/u505/`). For a public preview, serve `index.html` together with `art/u505_game.glb`, and link to `?sources=online` for the notebook's external citations. Without the GLB, the scenes fall back to the simple primitive boat. The downloaded research archive remains available in the local preview.
 - The fixed pump prompt distinguishes the scene's power assumption from the record. Lange describes an electrical blackout during the attack. Pillsbury reports David stopping the boat, and the Navy's ship history places use of the boat's own pumps after recharging under tow. The evidence leaves the fixed pump's serviceability at first boarding open. [Lange statement](sources/tg-22-3/U-505LangeStatement.htm) · [Pillsbury report](sources/tg-22-3/U-505Pillsbury%20Report.htm) · [USS Guadalcanal ship history](https://www.history.navy.mil/research/histories/ship-histories/danfs/g/guadalcanal-i.html)
 - The first-time player test was skipped by request. Full foreground pacing, listening by ear, and frame timing remain open.
 
@@ -118,7 +124,7 @@ Chrome review covered all eight rooms, rebuilt pumps in both salvage setups, 7 J
 
 | Feature | Where to see it |
 | --- | --- |
-| **Cutaway replay** | Open **Review your run in cutaway** on the tow card or after Bermuda. Scrub water, reserve, and trim. Use the event buttons to jump to hatch changes and the first handy-billy connection. |
+| **Cutaway replay** | Opens automatically at the tow. Scrub water aboard, reserve buoyancy, and trim. Jump straight to the leak repair, the first handy-billy connection, or the tow. The final screen also offers **Review your run in cutaway**. |
 | **Hatch and pump audio** | Approach a hatch with standing water beyond it. Opening it raises the volume and restores high frequencies. A pump drawing air sounds different and shows an amber flag. |
 | **Stern tide mark** | Look aft on deck for the four gold bands on the casing fitting. The sea reveals the bands as the stern rises. |
 | **Peak flood marks** | Look beside the bulkhead openings after pumping. The wet band records the peak from the current scene, including the boarding state carried into Act 3. |

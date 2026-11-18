@@ -11,6 +11,7 @@ HATCHES = [  # (name, y, clear radius, slant deg)
     ('TorpedoAft', -24.8, 0.33, -12),
 ]
 PLANK_W, PLANK_GAP, PLANK_T = 0.105, 0.028, 0.045
+CANISTER_X, CANISTER_Y = 1.2, -7.75
 DECK_Y0, DECK_Y1 = -35.6, 34.6
 MARGIN = 0.15
 
@@ -178,9 +179,10 @@ def build_deck():
         for j in range(6):
             a = 2 * math.pi * j / 6
             add_cyl(bm, (0.13 * math.cos(a), cy + 0.13 * math.sin(a), z + 0.42), (0.13 * math.cos(a), cy + 0.13 * math.sin(a), z + 0.44), 0.035, seg=8)
-    # pressure-tight canisters beside the tower (Encl G 517 shows one to starboard)
+    # pressure-tight canisters: Encl G 507 is captioned "Flask as in rack aft of conning tower".
+    # Placed just aft of the aft fairing so the walkways beside the tower stay clear.
     for s in (1, -1):
-        x, y = s * 1.38, -1.9
+        x, y = s * CANISTER_X, CANISTER_Y
         z = deck_z(abs(x), y) + PLANK_T
         add_cyl(bm, (x, y, z), (x, y, z + 1.05), 0.17, seg=24)
         add_cyl(bm, (x, y, z + 1.05), (x, y, z + 1.12), 0.19, seg=24)

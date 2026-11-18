@@ -554,3 +554,92 @@ Baked the model's procedural weathering into textures, so the GLB keeps it. Noth
   - Bow, stern, tower and a new close `casing` view: the weathering matches the Cycles renders, and no UV seams are visible on the casing at about 7 m.
   - A new `far` view (about 340 m, the Act 1 distance), magnified 5× from the canvas, shows no dark mipmap bleed at the atlas island edges. Neither does the 95 m side view.
 - **Note.** A rebuild regenerates the meshes and drops `BakeUV`, so run `bake_all` again before a textured export.
+
+## 2026-11-17 — Detailed U-505 in the surfacing and tow scenes
+
+The Blender model now replaces the primitive U-boat in the Act 1 surfacing scene and the 14:23 tow. The walkable deck (Act 3 and 7 June) still uses the simple boat. Its walk heights don't match the real geometry; see "Not done" below.
+
+- **Game model.** `art/u505_game.glb`, 990 KB with Draco, built by `export_game_glb()` in `tools/blender/u505/export_gltf.py` (run `bake_all` first).
+  - **Triangles:** 79k, against 168k for the full model. The weld beads and netting are dropped, and the hull, tanks, tower shells and dense fittings are decimated.
+  - **Draw calls:** 10 meshes, one per material.
+  - **Textures:** the paint atlas at 2048², the deck strip at 4096×512.
+  - **Metalness:** capped at 0.3, because the exterior scene has no environment map and fully metallic surfaces would render nearly black.
+- **Loading in `index.html`.**
+  - The import map adds `three/addons/` (three 0.160.0, jsDelivr). `loadBoatArt()` imports `GLTFLoader` and `DRACOLoader` dynamically, loads the GLB in the background, adds it to the `uboat` group and compiles its shaders once.
+  - Any failure (offline, `file://`, or the single-file public preview without `art/`) logs a warning and keeps the primitives. `?boatart=0` turns the model off.
+  - `setBoatArt()` decides what shows: the model in Act 1 and the tow, the primitives on the walkable deck (`openDeck` and `closeDeck`).
+  - `placeBoatArt(waterY)` puts the model's waterline (4.30 m above its origin) at the scene's sea level in the group frame: −0.8 in Act 1, −1.55 in the tow, where extra draught still lowers the whole group.
+  - The tow wire now ends at the model's stem fitting.
+- **Verified in the browser** (port 8507; the 8505 server predates the `.glb` MIME type and needs a restart).
+  - **Surfacing:** the model loads; the waterline sits at sea level ±0.3 m with the swell, the keel is under water and the deck about 1.7 m above the sea. The orbit shot shows the tower, Wintergarten, guns and wires.
+  - **Tow** (`?water-demo=tow`): the wire is on the stem and she trims stern-down at the run's draught.
+  - **Walkable deck** (`?water-demo=deck`): the model is hidden, the simple boat is shown, and walking works.
+  - **`?boatart=0`:** the GLB isn't requested and the primitives run the tow.
+  - **Cost:** shader programs go from 24 to 32 (the model's materials, compiled at load). The exterior frame showed 27 draws and about 80k triangles.
+  - The only console error is a favicon 404, which also happens with the model off.
+  - `simcheck` and `evidencecheck` pass.
+- **Not done: the walkable deck.**
+  - The model's deck is 1.1 m higher and its bridge floor 1 m lower than the game's `deckY` (2.57) and `bridgeY` (6.85), measured from the hull axis.
+  - The game's stairs run up the centreline through the real tower.
+  - Matching the model would raise the freeboard from about 0.6 m to 1.6 m (so waves cross the deck less often on 7 June) and reroute the walk around the tower. That's a gameplay decision for the user.
+
+## 2026-11-17 — The walkable deck matches the real boat
+
+The user chose to make the walkable deck match the model. The Act 3 and 7 June deck now shows the detailed model and walks on its real surfaces.
+
+- **Model changes** (`tools/blender/u505`):
+  - The bridge hatch moves to x −0.9, matching the game's `hull.hatch.x_m`.
+  - Steep ladders join the lower and upper Wintergarten platforms at side ±0.78.
+  - The railings have gaps at those ladders and at the deck-to-platform rungs (x −5.6).
+  - The deck canisters move aft of the tower (x −7.75), matching the Encl G 507 caption "Flask as in rack aft of conning tower".
+  - Then a rebuild, re-bake and re-export of all the GLBs.
+  - The Cycles renders in `docs/visuals/blender/` predate these four changes.
+- **Walk layout** (`deckLayout` in the exterior block of `index.html`) ports the model's own geometry:
+  - `T_W` and `T_B`, the sheer, the deck camber and plank thickness, and the tower plan outlines.
+  - It matched Blender to within 0.5 mm at nine stations from stern to bow.
+- **Three walking levels**, heights above the hull axis:
+
+  | Level | Height |
+  |---|---|
+  | Weather deck | about 3.78 m midships, following the sheer |
+  | Lower Wintergarten | 4.905 m |
+  | Bridge and upper platform | 5.905 m |
+
+  - Side rungs join the deck and the lower platform; ladders join the lower and upper platforms.
+  - Collision covers the fairwater, the aft fairing, the compass hood, the bulwark (open aft), both platform edges, the periscope standards, the bridge fittings, the 20 mm mounts and lockers, the 37 mm pedestal, the hatches, the capstans, the bitts and the canisters. Player clearance is 0.15 m.
+  - The old stairs, planks, rails and bollards are gone. The hatch label, the 7 June power lead and the tide-band fitting stay, set on the new surfaces.
+  - The deck wash film follows the deck's sheer and camber and both platforms.
+  - Casing foam forms at the waterline beam, against the old 2.57 m reference.
+  - The exterior camera's near plane drops to 0.08 m on deck.
+  - Climbing out puts the player on the bridge beside the hatch. The wash view starts on the lower platform.
+- **Without the model** (`?boatart=0`, offline), the primitive casing and tower are lifted to the new deck height on deck. Walking works; the look is rough.
+- **Added side ladders (a gameplay fitting, not from the photographs).** At the game's real trims (21.1° stern-down in Act 3 at 12:40, 22.6° at the 7 June start), the deck end of the aft rungs is 1.0–1.2 m under water. That cut the player off from the weather deck in both scenes. A ladder now hangs off each side of the upper platform at x −2.5 (`SIDE_LADDER_Y` in tower.py) down to the dry walkway beside the fairwater. The wash-view spawn moved forward to the dry lower platform (x −4.9).
+- **Added forward rungs (also a gameplay fitting).** These run up each side of the fairwater at x 2.6 and over the bridge bulwark, with a handhold arch and an inside step (`FWD_RUNG_Y`). Their foot sits about 2 m higher than the side ladder's at these trims.
+  - In a 7 June time series with no pumps, the route from the forward deck back to the hatch now holds until 42 minutes. She founders at 28 and is lost at 45. With only the side ladder, it was lost at about 30–32 minutes.
+  - In Act 3 the route stays open from 12:40 to 14:23. The trim holds at 21.1° when idle.
+- **Deck-side ladders are E actions,** like the hatch. They are the aft rungs, the side ladders and the forward rungs.
+  - Standing within 0.6 m of a ladder's foot or top shows "[E] Climb up the ladder" or "[E] Climb down the ladder to the deck". E moves the player to the landing at the other end (`deckLayout.nearClimb`, `exterior.climbLadder`).
+  - It refuses with "Water is washing over the foot of that ladder." when the landing is under water.
+  - Walk-on ramp ladders were tried first, but walking along the narrow walkway beside the tower either lifted the player or, once that was suppressed, never started a climb. Only the two ladders between the platforms are walk-on.
+  - The deck hint now reads "E at a ladder to climb".
+- **Verified.**
+  - **Routes, level pose:** a breadth-first search from the bridge spawn reaches the forward bridge, the upper platform, every ladder, the lower platform, the tide bands, the stern and the bow (past the tower). It cannot reach inside the tower or onto the gun mounts or periscope standards.
+  - **Routes, real poses with the wash rule:** the reachable deck runs from x −3.8 (Act 3) or −3.4 (7 June) to the bow; the flooded aft deck stays blocked.
+  - **Walking:** walking aft along the walkway in the Act 3 pose stops at x −3.4, where the wash rule takes over. Earlier walk-only route checks used the walk-on ramp version of the deck-side ladders, which has since been replaced by E-climbs. The current proof is the prompt-driven route and the time series below.
+  - **Climb-out loop:** the real F / E / F loop at the control-room ladder works: out onto the bridge beside the hatch, back below, out again.
+  - **Prompts:** in the Act 3 pose, a search over walk steps and climbs, followed through the game's own `use()` and prompts, went bridge → "[E] Climb down the ladder to the deck" → forward deck → "[E] Climb up the ladder" → bridge → "[E] Climb down through the hatch" → below. The 7 June and Act 3 time series above were rerun with the E-climbs and give the same results.
+  - **Not checked by hand:** the ladder stringers aren't collision obstacles, and the forward rungs stand about 0.47 m off the fairwater.
+  - **Shader programs:** stay at 31 across deck → tow → surfacing → deck.
+  - **Checks:** `simcheck` and `evidencecheck` pass.
+- **Gameplay change (measured, not retuned).** Act 3 at 12:40 sits 21° stern-down; 7 June starts at 22.6°.
+  - The aft deck is still deep under water at x −14, −25 and −32 in both: foot height −3.9 m to −11.3 m, against −5.1 m to −12.4 m on the old deck.
+  - The point where the sea crosses the deck has moved about 3 m aft, from about midships to beside the tower's aft fairing. Wash-over still blocks the aft deck.
+  - The tow has no walking, so its pose wasn't sampled.
+
+## 2026-11-18 — Jam build browser checks and campaign sound fixes
+
+- Tested the shipped `index.html` plus `art/u505_game.glb` on a fresh local origin in a new foreground Chrome window. Native button input captured the mouse; Escape released it and paused. An iframe deliberately refused capture: real drag input changed the deck camera, and E returned below. A browser-delivered R on a loss screen returned to the 11:46 boarding card.
+- Fixed campaign sound: Act 1 previously never updated the mixer outside the water demo, and sea ambience was gated to demo shots. Approach and tow now play the sea channel and silence interior channels. Also silenced channels behind title/interstitial cards, including the restart title, which previously retained boarding sounds.
+- Added the lazy `__u505.audio.output()` analyser probe and `tools/jamcheck.html`. The harness loads the actual build unchanged, uses existing debug hooks for setup, and passes 15 browser checks: live unclipped audio output, drag/release/movement, mute, pause/resume, notebook sound, approach sound, textured model, deck/hatch loop, Act 2/3/7 June loss/retry, checkpoint restoration, normal tow handoff, final restart and title silence.
+- Visually checked the detailed surfacing boat and playable bridge, plus the explicit primitive fallback. The GLB has 10 meshes, 79,434 triangles and two meshes with loaded texture maps. No shader/model loading blocker was observed.
+- `node tools/simcheck.mjs` and `node tools/evidencecheck.mjs` pass. Audio was verified from live WebAudio waveform samples and the browser's audio-playing indicator; subjective speaker/headphone listening, a full real-time playthrough and continuous foreground frame timing were not performed.

@@ -13,6 +13,43 @@ TW = dict(
 )
 
 
+HATCH_Y = -0.9      # upper conning-tower hatch, matching the game's hull.hatch.x_m
+LADDER_X = 0.78     # lower -> upper platform ladders, each side
+RUNG_Y = -5.6       # deck -> lower platform rungs on the aft fairing sides
+# Gameplay fitting, not from the photographs: a ladder hung off each side of the upper platform down
+# to the walkway beside the fairwater. With the boat 21-23 degrees stern-down in the game's Act 3 and
+# 7 June scenes the aft rungs land in the sea, so this keeps the dry forward deck reachable.
+SIDE_LADDER_Y, SIDE_LADDER_X = -2.5, 1.36
+# Gameplay fitting, not from the photographs: rungs up each side of the fairwater and over the bridge
+# bulwark, forward of the bridge fittings. As the 7 June boat settles stern-down the side ladders flood
+# first; this route back to the hatch from the forward deck stays dry about 2 m longer.
+FWD_RUNG_Y, FWD_RUNG_X = 2.6, 1.42
+
+
+def split_runs(path, keep):
+    """Split a polyline into contiguous runs of points that pass keep()."""
+    runs, cur = [], []
+    for p in path:
+        if keep(p):
+            cur.append(p)
+        elif cur:
+            if len(cur) > 1:
+                runs.append(cur)
+            cur = []
+    if len(cur) > 1:
+        runs.append(cur)
+    return runs
+
+
+def upper_edge_y(x):
+    """Aft edge (railing line) of the upper platform at |x|."""
+    T = TW
+    upl = egg(T['body_W'] + T['ledge_off'] - 0.05, T['body_yf'], T['body_yb'] - 0.02, T['body_ym'],
+              n=400, ef=1.55, eb=2.4)
+    aft = [p for p in upl if p[1] < T['body_ym']]
+    return min(aft, key=lambda p: abs(abs(p[0]) - abs(x)))[1]
+
+
 def egg(W, yf, yb, ym, n=72, es=2.6, ef=1.7, eb=2.1, a0=0.0, a1=2 * math.pi, closed=True):
     """Plan outline (x, y) with a rounded bow-ward end and fuller aft end.
     alpha = 0 starboard, pi/2 forward, pi port, 3pi/2 aft."""
@@ -232,13 +269,50 @@ def build_tower():
     bm_p = bmesh.new(); bm_n = bmesh.new()
     # upper platform: from the starboard bulwark end, round the aft end, to the port end
     upl = egg(T['body_W'] + lo - 0.05, T['body_yf'], T['body_yb'] - 0.02, T['body_ym'], n=96, ef=1.55, eb=2.4)
-    # outline order runs starboard -> forward -> port -> aft, so the aft run is contiguous
+    # outline order runs starboard -> forward -> port -> aft, so the aft run is contiguous.
+    # Gaps are left where the ladders from the lower platform arrive (|x| around LADDER_X).
     path = [p for p in upl if p[1] < T['bul_yb'] + 0.45]
-    railing(bm_p, bm_n, path, lt + 0.05, height=1.0, spacing=0.6)
-    # lower platform: around the aft end only
+    keep = lambda p: (not (LADDER_X - 0.26 < abs(p[0]) < LADDER_X + 0.26)
+                      and not (abs(p[1] - SIDE_LADDER_Y) < 0.3 and abs(p[0]) > 0.9))
+    for run in split_runs(path, keep):
+        railing(bm_p, bm_n, run, lt + 0.05, height=1.0, spacing=0.6)
+    # forward rungs up the fairwater and over the bulwark, with a foot step inside (gameplay fitting)
+    for s in (1, -1):
+        zb, ztop = DECK_Z + 0.05, T['bul_top'] + 0.05
+        for dy in (-0.18, 0.18):
+            add_tube_path(bm_p, [(s * FWD_RUNG_X, FWD_RUNG_Y + dy, zb), (s * FWD_RUNG_X, FWD_RUNG_Y + dy, ztop - 0.02)], 0.02, seg=8)
+            # handhold arching over the bulwark lip
+            add_tube_path(bm_p, [(s * FWD_RUNG_X, FWD_RUNG_Y + dy, ztop - 0.02), (s * 1.35, FWD_RUNG_Y + dy, ztop + 0.18),
+                                 (s * 1.12, FWD_RUNG_Y + dy, ztop + 0.12), (s * 1.08, FWD_RUNG_Y + dy, ztop - 0.25)], 0.02, seg=8)
+        for k in range(1, 12):
+            z = lerp(zb, ztop, k / 12)
+            add_cyl(bm_p, (s * FWD_RUNG_X, FWD_RUNG_Y - 0.18, z), (s * FWD_RUNG_X, FWD_RUNG_Y + 0.18, z), 0.017, seg=6)
+        add_box(bm_p, (s * 1.0, FWD_RUNG_Y, lt + 0.62), (0.16, 0.36, 0.04))   # inside step
+    # side ladders from the upper platform edge down to the deck walkway (gameplay fitting)
+    for s in (1, -1):
+        zb, zt_ = DECK_Z + 0.05, lt + 0.06
+        for dy in (-0.2, 0.2):
+            add_tube_path(bm_p, [(s * SIDE_LADDER_X, SIDE_LADDER_Y + dy, zb),
+                                 (s * SIDE_LADDER_X, SIDE_LADDER_Y + dy, zt_ + 0.9)], 0.022, seg=8)
+        for k in range(1, 8):
+            z = lerp(zb, zt_, k / 7)
+            add_cyl(bm_p, (s * SIDE_LADDER_X, SIDE_LADDER_Y - 0.2, z), (s * SIDE_LADDER_X, SIDE_LADDER_Y + 0.2, z), 0.018, seg=6)
+    # lower platform: around the aft end only, open at the side rungs from the deck
     lpl = offset_outline(aft, 0.17)
     path2 = [p for p in lpl if p[1] < T['body_yb'] + 0.1]
-    railing(bm_p, bm_n, path2, pz + 0.1, height=1.0, spacing=0.6)
+    for run in split_runs(path2, lambda p: abs(p[1] - RUNG_Y) > 0.36):
+        railing(bm_p, bm_n, run, pz + 0.1, height=1.0, spacing=0.6)
+    # steep ladders from the lower platform up to the upper platform, one each side
+    for s in (1, -1):
+        yt = upper_edge_y(LADDER_X) - 0.03
+        yb = yt - 0.42
+        zb, zt_ = pz + 0.11, lt + 0.06
+        for dx in (-0.2, 0.2):
+            add_tube_path(bm_p, [(s * LADDER_X + dx, yb, zb), (s * LADDER_X + dx, yt, zt_ + 0.75)], 0.022, seg=8)
+        for k in range(1, 5):
+            t = k / 5
+            add_cyl(bm_p, (s * LADDER_X - 0.2, lerp(yb, yt, t), lerp(zb, zt_, t)),
+                    (s * LADDER_X + 0.2, lerp(yb, yt, t), lerp(zb, zt_, t)), 0.018, seg=6)
     bm_to_obj(bm_p, 'Tower_Railings', c, mats=['M_Galv'], smooth=True)
     bm_to_obj(bm_n, 'Tower_Netting', c, mats=['M_Netting'], recalc=False)
 
@@ -277,13 +351,13 @@ def build_tower():
     add_cyl(bm, (-0.52, 3.35, fz + 0.95), (-0.5, 3.45, fz + 1.0), 0.06, r1=0.075, seg=12)
     add_box(bm, (-0.75, 2.9, fz + 0.75), (0.18, 0.1, 0.22))
     # conning-tower upper hatch (raised coaming, open lid)
-    add_cyl(bm, (0, -0.65, fz - 0.02), (0, -0.65, fz + 0.16), 0.36, seg=28)
-    add_cyl(bm, (0, -0.65 - 0.36, fz + 0.18), (0, -0.65 - 0.36 - 0.05, fz + 0.9), 0.04, seg=6, cap=True)
+    add_cyl(bm, (0, HATCH_Y, fz - 0.02), (0, HATCH_Y, fz + 0.16), 0.36, seg=28)
+    add_cyl(bm, (0, HATCH_Y - 0.36, fz + 0.18), (0, HATCH_Y - 0.36 - 0.05, fz + 0.9), 0.04, seg=6, cap=True)
     hb = bmesh.new()
     add_cyl(hb, (0, 0, 0), (0, 0, 0.08), 0.37, seg=28)
     add_box(hb, (0, 0, 0.1), (0.12, 0.5, 0.05))
     bmesh.ops.rotate(hb, verts=hb.verts, cent=(0, 0, 0), matrix=Matrix.Rotation(math.radians(80), 3, 'X'))
-    bmesh.ops.translate(hb, verts=hb.verts, vec=(0, -0.65 - 0.36, fz + 0.2 + 0.37))
+    bmesh.ops.translate(hb, verts=hb.verts, vec=(0, HATCH_Y - 0.36, fz + 0.2 + 0.37))
     tmp = bpy.data.meshes.new('_tmp'); hb.to_mesh(tmp); hb.free(); bm.from_mesh(tmp); bpy.data.meshes.remove(tmp)
     # retractable rod antenna housing (port side of the bridge)
     add_cyl(bm, (-0.95, 0.8, fz), (-0.95, 0.8, bt + 0.25), 0.07, seg=14)
@@ -304,7 +378,7 @@ def build_tower():
         # rungs on the aft fairing side (deck to lower platform)
         for k in range(4):
             z = DECK_Z + 0.25 + 0.27 * k
-            yR = -5.6
+            yR = RUNG_Y
             xo = T['aft_W'] + 0.05
             add_tube_path(bm, [(s * (xo - 0.02), yR - 0.18, z), (s * (xo + 0.09), yR - 0.18, z), (s * (xo + 0.09), yR + 0.18, z), (s * (xo - 0.02), yR + 0.18, z)], 0.014, seg=6)
         # grab rails on the fairwater sides

@@ -55,6 +55,14 @@
   #intro div { max-width: 560px; padding: 20px; font-size: 15px; line-height: 1.5; }
   #intro h1 { font-size: 24px; letter-spacing: .06em; margin: 0 0 12px; }
   #intro .go { margin-top: 18px; color: #e5b567; }
+  #intro:has(.start-actions) { cursor: default; }
+  .start-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
+  .start-actions button { font: inherit; color: #d6dcd8; background: #132b2d; border: 1px solid #617f7c;
+    padding: 9px 14px; cursor: pointer; }
+  .start-actions .primary { color: #14140e; background: #e5b567; border-color: #e5b567; font-weight: bold; }
+  .start-actions button:focus-visible { outline: 2px solid #f2dfb4; outline-offset: 3px; }
+  #current-order { position: fixed; left: 12px; top: 14px; margin: 0; max-width: min(64ch, calc(100vw - 44px));
+    padding: 7px 10px; background: #09191eeb; border-left: 2px solid #e5b567; color: #f2dfb4; pointer-events: none; }
   #intro-date { color: #9fb3ad; letter-spacing: .1em; text-transform: uppercase; font-size: 12px; margin-bottom: 4px; }
   #intro table { border-collapse: collapse; margin: 10px 0; font-size: 13px; text-align: left; }
   #intro td, #intro th { padding: 4px 8px; border-bottom: 1px solid #2c3836; vertical-align: top; }
@@ -74,6 +82,7 @@
   body.on-deck #hint { display: none; }
   #deck-actions { position: fixed; left: 12px; top: 14px; max-width: calc(100vw - 42px); padding: 5px 9px; color: #ede9db;
     background: #09191edb; pointer-events: none; display: none; }
+  #deck-command { display: block; color: #f2dfb4; }
   #water-demo { position: fixed; z-index: 8; right: 12px; top: 12px; width: min(404px, calc(100% - 24px));
     max-height: calc(100% - 24px); overflow: auto; box-sizing: border-box; padding: 11px 12px;
     border: 1px solid #567674; border-radius: 4px; background: #0b1b20ee; }
@@ -120,16 +129,31 @@
     padding: clamp(14px, 3vw, 28px); border: 1px solid #78928b; color: #d6dcd8; background: #0b1d20; }
   #replay::backdrop { background: #040d10df; }
   #replay header { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-  #replay h2 { font-size: clamp(18px, 3vw, 24px); margin: 0; color: #f2dfb4; }
+  #replay h2 { font-size: clamp(20px, 3.4vw, 30px); margin: 0; color: #f2dfb4; }
+  #replay-title:focus { outline: none; }
+  #replay-date { margin: 0 0 3px; color: #9fb3ad; }
+  #replay-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 12px 0; }
+  #replay-metrics div { background: #13292b; border-left: 2px solid #78928b; padding: 6px 10px; }
+  #replay-metrics dt { color: #b3d4cb; }
+  #replay-metrics dd { margin: 1px 0 0; color: #f3eddb; font-size: clamp(20px, 4vw, 28px); font-weight: bold; font-variant-numeric: tabular-nums; }
   #replay-view { display: block; width: 100%; height: auto; background: #091519; border: 1px solid #395356; box-sizing: border-box; }
-  #replay input { display: block; width: 100%; margin: 10px 0; accent-color: #e5b567; }
-  #replay-controls { display: flex; flex-wrap: wrap; gap: 8px; }
-  #replay-status { color: #b3e3d9; }
-  #replay-rooms { color: #aabeb8; }
+  #replay input { display: block; width: 100%; margin: 8px 0; accent-color: #e5b567; }
+  #replay-controls, #replay-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  #replay button:disabled { opacity: .48; cursor: default; }
+  #replay :is(button, input, summary):focus-visible { outline: 2px solid #f2dfb4; outline-offset: 2px; }
+  #replay-status { margin: 8px 0; color: #b3e3d9; }
+  #replay-event { margin: 8px 0; min-height: 1.35em; }
+  #replay-rooms { margin: 4px 0 0; color: #aabeb8; }
+  #replay-actions { margin: 14px 0 10px; }
+  #replay #replay-rescue { color: #14140e; background: #e5b567; border-color: #e5b567; font-weight: bold; }
+  #replay summary { color: #b3d4cb; cursor: pointer; }
+  #replay table { border-collapse: collapse; margin: 8px 0 0; text-align: left; }
+  #replay :is(th, td) { border-bottom: 1px solid #365253; padding: 4px 8px; vertical-align: top; }
   #prompt { max-width: calc(100vw - 36px); text-align: center; white-space: normal; }
 </style>
 <script type="importmap">
-{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+               "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
 </script>
 </head>
 <body>
@@ -139,8 +163,9 @@
 <div id="hatch-fade"></div>
 <div id="cross"></div>
 <div id="prompt"></div>
+<p id="current-order" role="status" hidden></p>
 <div id="hint">Click to look · WASD move · Shift run · E use (hold for valves) · F second action · G notebook · M sound · P pause · Esc release mouse</div>
-<div id="deck-actions"></div>
+<div id="deck-actions"><strong id="deck-command" role="status"></strong><span id="deck-controls"></span></div>
 <aside id="water-demo" hidden aria-labelledby="water-demo-title">
   <h1 id="water-demo-title">Water demo</h1>
   <nav aria-label="Water scenes">
@@ -210,26 +235,40 @@
 <div id="glossary"></div>
 <div id="msg"></div>
 <div id="caption" aria-live="polite"></div>
-<div id="cutscene-controls">Enter skip · P pause · G notebook</div>
+<div id="cutscene-controls">Enter to board · P pause · G notebook</div>
 <div id="intro"><div><div id="intro-date"></div><h1 id="intro-title"></h1><div id="intro-text"></div><p class="go" id="intro-go">Click to begin.</p></div></div>
 <div id="banner"><div><h1 id="banner-title"></h1><div id="banner-text"></div><p id="banner-hint">Press R to restart from the boarding.</p></div></div>
 <div id="debug"></div>
 <div id="pause" role="dialog" aria-modal="true" aria-labelledby="pause-title"><div><h1 id="pause-title">Paused</h1><p id="pause-reason">Take your time. The boat waits here.</p><button id="resume" type="button">Resume</button><p>P or Enter to resume · G opens the notebook</p></div></div>
 <dialog id="replay" aria-labelledby="replay-title">
-  <header><h2 id="replay-title">Your run in cutaway</h2><form method="dialog"><button>Close</button></form></header>
-  <p>4 June · Boarded at 11:46 GCT · Tow at 14:23 GCT</p>
+  <header>
+    <div><p id="replay-date">4 June 1944</p><h2 id="replay-title" tabindex="-1">Your run in cutaway</h2></div>
+    <form method="dialog" id="replay-dismiss"><button>Close</button></form>
+  </header>
+  <dl id="replay-metrics">
+    <div><dt>Water aboard</dt><dd id="replay-water"></dd></div>
+    <div><dt>Reserve buoyancy</dt><dd id="replay-reserve"></dd></div>
+  </dl>
   <canvas id="replay-view" width="840" height="250" aria-label="Side view of the boat showing modeled floodwater and hatch states"></canvas>
   <p id="replay-status"></p>
   <label for="replay-seek">Scrub the timeline</label>
   <input id="replay-seek" type="range" min="0" value="0">
   <div id="replay-controls">
-    <button id="replay-prev" type="button">Previous event</button>
-    <button id="replay-next" type="button">Next event</button>
+    <button id="replay-leak" type="button">Leak repair</button>
     <button id="replay-pump" type="button">First pump</button>
     <button id="replay-tow" type="button">Go to tow</button>
+    <button id="replay-prev" type="button">Previous event</button>
+    <button id="replay-next" type="button">Next event</button>
   </div>
   <p id="replay-event" aria-live="polite"></p>
-  <p id="replay-rooms"></p>
+  <details id="replay-compartments"><summary>Water by compartment</summary><p id="replay-rooms"></p></details>
+  <div id="replay-debrief" hidden>
+    <div id="replay-actions">
+      <button id="replay-rescue" type="button">Continue to June 7 rescue</button>
+      <button id="replay-story" type="button">Watch the June 4–5 tow story</button>
+    </div>
+    <details id="replay-history"><summary>Compare with the historical account</summary><div id="replay-summary"></div></details>
+  </div>
 </dialog>
 
 <!-- =====================================================================
@@ -1318,9 +1357,7 @@
   "end_text": "About 12:40 in the task-group narrative, salvage parties from Guadalcanal arrive under Commander Earl Trosino and Lieutenant D. E. Hampton.",
   "intro_title": "4 June 1944, 11:46 GCT",
   "intro": [
-    "U-505 is circling to starboard, stern low. Her crew has abandoned ship. Reports differ on her speed.",
-    "You are one of the boarding party from USS Pillsbury. You are an invented sailor: the real men appear in the game only as themselves.",
-    "The game places you below immediately after the 11:46 boarding time in Pillsbury’s log; the chronology gives 11:43. Somewhere aft, the sea is getting in."
+    "You are with the boarding party from USS Pillsbury. U-505’s crew has abandoned ship, and the diesel room is taking on water."
   ],
   "orders": [
     {
@@ -1423,7 +1460,7 @@
   "intro_title": "12:40. The salvage party",
   "intro": [
     "The task-group narrative places Guadalcanal’s salvage parties aboard at about 12:40, under Trosino and Hampton, with gasoline handy-billy pumps.",
-    "Check the flood survey beside the ladder or in your notebook (G). Two handy-billies are ready to connect to the crew's intake hoses. Press F at the ladder to climb out whenever you need a look topside.",
+    "Check the flood survey beside the ladder. Choose a flooded room, then take a handy-billy pump from the foot of the ladder.",
     "The real salvage party disconnected demolition charges, shut watertight doors and rigged the pumps; here you do it with them."
   ],
   "orders": [
@@ -3922,7 +3959,8 @@ const strainer = (() => {
       }`
   }));
   jet.name = 'Sea strainer jet'; jet.renderOrder = 3; g.add(jet);
-  const cover = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.05, 16), lambert(0xc9a24a));
+  const cover = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.05, 16),
+    lambert(0xc9a24a, { emissive: 0xdba94c, emissiveIntensity: 0 }));
   g.add(cover);
   const hit = new THREE.Mesh(new THREE.SphereGeometry(0.3, 10, 8),
     new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }));
@@ -4159,12 +4197,17 @@ const valveViz = sim.valves.map((v, k) => {
   else g.add(cylBetween(back, back.clone().addScaledVector(n, -0.25), 0.03, col));
   // brass plate with the German name
   const words = v.de.split(' ');
-  const p = plate([words[0], words.slice(1).join(' ')], 0.32);
-  if (v.face === 'up') { p.position.copy(toV(v.x, v.z + 0.28, v.side)); p.rotation.y = v.side > 0 ? -Math.PI / 2 : Math.PI / 2; }
+  const floodValve = v.id === 'v_scuttle_placeholder';
+  const p = floodValve ? plate(['FLUTVENTIL', 'Flood valve'], 0.64) : plate([words[0], words.slice(1).join(' ')], 0.32);
+  if (floodValve) {
+    p.position.copy(toV(v.x, v.z + 0.65, v.side)); p.rotation.y = Math.PI;
+    g.add(cylBetween(centre, p.position, 0.018, 0x8d8d86));
+  } else if (v.face === 'up') { p.position.copy(toV(v.x, v.z + 0.28, v.side)); p.rotation.y = v.side > 0 ? -Math.PI / 2 : Math.PI / 2; }
   else { p.position.copy(centre).addScaledVector(n, -0.12); p.position.y += v.wheel === 'lever' ? -0.2 : 0.17; p.rotation.y = FACE_ROT[v.face][1]; }
   g.add(p);
   const hit = new THREE.Mesh(new THREE.SphereGeometry(v.wheel === 'lever' ? 0.2 : 0.16, 10, 8), hitMat());
   hit.position.copy(centre); hit.userData.use = { type: 'valve', k }; g.add(hit); interactables.push(hit);
+  if (floodValve) { p.userData.use = hit.userData.use; interactables.push(p); }
   return { spin, v };
 });
 // manifold headers joining valves of one kind, with a plate naming the manifold
@@ -4461,7 +4504,10 @@ addEventListener('keydown', e => {
   }
   if (e.code === 'KeyP' && !e.repeat) { playPaused ? resumePlay() : pausePlay(); e.preventDefault(); return; }
   if (playPaused && e.code === 'Enter' && !e.repeat) { resumePlay(); e.preventDefault(); return; }
-  if (introUp() && (e.code === 'Enter' || e.code === 'Space') && !e.repeat) { introEl.click(); e.preventDefault(); return; }
+  if (introUp() && (e.code === 'Enter' || e.code === 'Space') && !e.repeat) {
+    if (e.target.closest?.('#intro button')) return;
+    dismissCard(); e.preventDefault(); return;
+  }
   if (e.code === 'Backquote' || e.code === 'F3') {
     const hide = debugEl.style.display !== 'none';
     debugEl.style.display = hide ? 'none' : 'block';
@@ -4476,7 +4522,7 @@ addEventListener('keydown', e => {
   if (e.code === 'KeyF' && !e.repeat) use('F');
   if (e.code === 'KeyM' && !e.repeat) say(audio.toggleMute() ? 'Sound off (M)' : 'Sound on (M)', 2);
   if (e.code === 'KeyR' && bannerEl.style.display === 'flex') restartStage();
-  if (story.act === 1 && (e.code === 'Enter' || e.code === 'Space')) exterior.finish();
+  if (story.act === 1 && (e.code === 'Enter' || e.code === 'Space') && !e.repeat) exterior.finish();
   keys.add(e.code);
 });
 addEventListener('keyup', e => keys.delete(e.code));
@@ -4573,6 +4619,7 @@ function saveGlossary() {
 function see(list) { let added = false; for (const t of list) if (terms.has(t) && !seen.has(t)) { seen.add(t); added = true; } if (added) { saveGlossary(); if (glossaryOpen()) renderGlossary(); } }
 const glossaryOpen = () => glossaryEl.style.display === 'block';
 function renderGlossary() {
+  if (story.act === 3) salvageSurveyRead = true;
   const list = glossaryTerms.filter(t => seen.has(t.de));
   for (const t of list) readT.add(t.de);
   saveGlossary();
@@ -4671,8 +4718,10 @@ const valveDir = sim.valves.map(() => -1);       // last direction each valve wa
 const nextDir = k => { const f = sim.s.valve[k]; return f >= 1 ? -1 : f <= 0 ? 1 : valveDir[k]; };
 function findTarget() {
   if (story.onDeck) {
-    target = exterior.nearDeckHatch() && !stageOver() ? { type: 'deckHatch' } : null;
-    promptEl.textContent = target ? '[E] Climb down through the hatch' : '';
+    const climb = stageOver() ? null : exterior.nearDeckHatch() ? 'hatch' : exterior.nearClimb();
+    target = climb === 'hatch' ? { type: 'deckHatch' } : climb ? { type: 'deckLadder', up: climb === 'up' } : null;
+    promptEl.textContent = !target ? '' : target.type === 'deckHatch' ? '[E] Climb down through the hatch'
+      : target.up ? '[E] Climb up the ladder' : '[E] Climb down the ladder to the deck';
     promptEl.style.display = target ? 'block' : 'none';
     return;
   }
@@ -4687,8 +4736,10 @@ function findTarget() {
   target = hit ? hit.object.userData.use : null;
   let html = ''; hinted = false;
   if (target && target.type === 'door') {
-    const d = sim.doors[target.k], other = comps[d.a === player.comp ? d.b : d.a];
-    html = '[E] ' + (sim.s.doorOpen[target.k] ? 'Close' : 'Open') + ' hatch to ' + name(other.de, other.en);
+    const d = sim.doors[target.k], other = comps[d.a === player.comp ? d.b : d.a], open = sim.s.doorOpen[target.k];
+    html = open && player.comp === d.a && d.b === strainer.o.c && boardingLeakOpen()
+      ? '[W] Enter the diesel room · [E] Close the hatch'
+      : '[E] ' + (open ? 'Close' : 'Open') + ' hatch to ' + name(other.de, other.en);
   } else if (target && target.type === 'strainer') {
     html = sim.s.sourceOpen[strainerSrc] ? '[E] Fit the strainer cover' : '[E] Take the strainer cover off';
   } else if (target && target.type === 'valve') {
@@ -4745,7 +4796,7 @@ function findTarget() {
     html = sim.s.V[player.comp] * sim.RHO < 1 ? 'Carrying a pump · nothing to pump in the ' + esc(comps[player.comp].en.toLowerCase())
       : '[E] Rig the pump here · ' + name(comps[player.comp].de, comps[player.comp].en) + (depth > 0.02 ? ` · ${depth.toFixed(2)} m over the deck plates` : '');
   }
-  if (story.act === 1 || story.act === 5 || story.rudder || waiting) html = '';
+  if (story.act === 1 || story.act === 5 || story.rudder || waiting || introUp()) html = '';
   promptEl.innerHTML = html; promptEl.style.display = html ? 'block' : 'none';
 }
 // handy-billies: Act 3 keeps them in the act, the 7 June scene in its own object
@@ -4799,6 +4850,7 @@ function use(key) {
       else toggleDeckWait();
     }
     else if (exterior.nearDeckHatch()) descendFromDeck();
+    else if (exterior.nearClimb() && exterior.climbLadder()) { flashHatchTransition(); exterior.updateDeck(elapsed); findTarget(); }
     return;
   }
   if (waiting) return;
@@ -4896,6 +4948,8 @@ function startWaiting() {
   say('You climb up into the daylight and wait on deck for the salvage party.', 8);
 }
 const deckActions = document.getElementById('deck-actions');
+const deckCommand = document.getElementById('deck-command');
+const deckControls = document.getElementById('deck-controls');
 const hatchFade = document.getElementById('hatch-fade');
 const salvageDeckAvailable = () => story.act === 3 || !!story.awash;
 function flashHatchTransition() {
@@ -4905,16 +4959,17 @@ function flashHatchTransition() {
 }
 function updateDeckActions() {
   if (waterDemo) {
-    deckActions.textContent = 'WASD move · E at the hatch to climb down';
+    deckCommand.textContent = '';
+    deckControls.textContent = 'WASD move · E at a ladder to climb · E at the hatch to climb down';
     return;
   }
   const aw = story.awash;
-  const action = waiting ? '[F] Stop fast-forward'
-    : !aw ? '[F] Wait for the tow'
+  deckCommand.textContent = waiting ? '[F] Stop fast-forward'
+    : !aw ? '[F] Wait for the tow at 14:23 (fast-forward)'
     : aw.deckSupport ? '[F] Wait for the pumps'
     : aw.rigged.length ? '[F] Hand off to the salvage crew'
     : 'Rig a pump below before handing off';
-  deckActions.textContent = action + ' · Return to the hatch to climb down';
+  deckControls.textContent = '[E] at a ladder to climb · [E] at the hatch to go below';
 }
 function climbOnDeck(washView = false) {
   story.onDeck = true; holding = null; turning = null; waitConfirm = 0;
@@ -5188,6 +5243,7 @@ function updateScene(time) {
   updateSpray(time, jetBase + jetH * .88 - R, inside - R, strainer.jet.visible && groups[o.c].visible, jetStrength);
   floodOptics.materials.get(o.c).jetRipple.value.set(o.side, -o.x, jetStrength * (strainer.jet.visible ? .16 : .055));
   strainer.cover.position.copy(open ? toV(o.x - 0.45, hull.floor_height_m + 0.03, o.side - 0.35) : toV(o.x, strainer.top + 0.025, o.side));
+  strainer.cover.material.emissiveIntensity = boardingLeakOpen() ? 0.26 : 0;
   strainer.coverHit.visible = open;
   strainer.coverHit.position.copy(strainer.cover.position);
   // valves: wheels turn clockwise to shut; levers swing from -60° (shut) to +60° (open)
@@ -5231,7 +5287,7 @@ let playPaused = false;
 function pausePlay(reason) {
   if (waterDemoScene === 'turbulence') return;
   keys.clear(); dragLook = false; turning = null; holding = null;
-  if (introUp() || bannerEl.style.display === 'flex') return;
+  if (introUp() || replayDialog.open || bannerEl.style.display === 'flex') return;
   playPaused = true; audio.setPaused(true);
   document.getElementById('pause-reason').textContent = reason || 'Take your time. The boat waits here.';
   if (!glossaryOpen()) pauseEl.style.display = 'flex';
@@ -5277,7 +5333,37 @@ const events = data.timeline.events.map(e => ({ t: Sim.parseClock(e.t), e }));
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const story = { act: 2, epi: -1, checkpoint: null, awash: null, rudder: null, onDeck: false, results: {} };
 const introEl = document.getElementById('intro');
+const introGo = document.getElementById('intro-go');
+const currentOrder = document.getElementById('current-order');
+let guideBoarding = false, salvageSurveyRead = false;
+const boardingLeakOpen = () => guideBoarding && story.act === 2 && !stageOver() && !act.done.inflow();
+function orderText() {
+  if (waterDemo || introUp() || stageOver() || waiting || playPaused || glossaryOpen() || story.onDeck) return '';
+  if (story.act === 2 && guideBoarding) {
+    if (boardingLeakOpen()) return player.comp === strainer.o.c
+      ? 'Look down at the highlighted cover beside the leak. Press E to fit it.' : 'Stop the leak in the diesel room.';
+    if (!act.done.diesels()) return 'Stop both diesels. Press E at the stop lever on each side of the diesel-room aisle.';
+    if (!act.done.scuttle()) return 'Go to the aft end of the motor room. Aim at the Flutventil sign and hold E to shut the flood valve.';
+    return 'Look at the control-room ladder and press F twice to wait for salvage. G shows the remaining orders.';
+  }
+  if (story.act !== 3) return '';
+  if (pumpInHand()) return 'Choose a flooded room in the survey (G). Press E at its labeled intake in the control or diesel room.';
+  if (act.s.rigged.length) {
+    const climb = 'Look at the control-room ladder and press F to climb out.';
+    return pumpPile() ? `${climb} A spare pump is at its foot.` : climb;
+  }
+  if (!salvageSurveyRead) return 'Read the flood survey beside the ladder. Press E at the board or open the notebook (G).';
+  return 'Look down at the pumps at the foot of the ladder. Press E to take one.';
+}
+function updateCurrentOrder() {
+  const order = orderText();
+  if (currentOrder.textContent === order) return;
+  currentOrder.textContent = order;
+  currentOrder.hidden = !order;
+}
 const replayDialog = document.getElementById('replay');
+const replayTitle = document.getElementById('replay-title');
+const replayDebrief = document.getElementById('replay-debrief');
 const replaySeek = document.getElementById('replay-seek');
 const replayCanvas = document.getElementById('replay-view');
 const replayInk = replayCanvas.getContext('2d');
@@ -5301,6 +5387,7 @@ function drawReplay(selected) {
   const a = next < 0 ? replayFrames.at(-1) : replayFrames[Math.max(0, next - 1)];
   const b = next < 0 ? a : replayFrames[next], f = b.t === a.t ? 0 : (t - a.t) / (b.t - a.t);
   const lerp = (v, w) => v + (w - v) * f;
+  const roomWater = a.water.map((water, i) => lerp(water, b.water[i]));
   const g = replayInk, trim = lerp(a.trim, b.trim), slope = Math.tan(trim);
   const x = m => 420 - m * 12.45, y = z => 159 - z * 20;
   const aft = comps.at(-1).xA, bow = comps[0].xF;
@@ -5316,7 +5403,7 @@ function drawReplay(selected) {
   g.save(); g.clip(hullPath);
   g.fillStyle = '#172e32'; g.fillRect(0, 55, 840, 105);
   for (const [i, room] of comps.entries()) {
-    const level = lerp(a.h[i], b.h[i]), water = lerp(a.water[i], b.water[i]);
+    const level = lerp(a.h[i], b.h[i]), water = roomWater[i];
     g.fillStyle = i % 2 ? '#172e32' : '#1c3639';
     g.fillRect(x(room.xF), 55, room.L * 12.45, 105);
     if (water > 0.02) {
@@ -5348,13 +5435,15 @@ function drawReplay(selected) {
   g.fillText('BOW', 26, 31); g.textAlign = 'right'; g.fillText('STERN', 814, 31);
   g.textAlign = 'left'; g.fillText('Outside waterline  ·  Dashed hatch open  ·  Amber hatch shut', 26, 219);
   const angle = trim * 180 / Math.PI;
-  const status =
-    Sim.formatClock(replayClock + t) + ' GCT · ' + lerp(a.rb, b.rb).toFixed(1) + ' t reserve · ' +
-    Math.abs(angle).toFixed(1) + '° ' + (angle < 0 ? 'bow down' : 'stern down');
+  const water = roomWater.reduce((total, amount) => total + amount, 0).toFixed(1) + ' t';
+  const reserve = lerp(a.rb, b.rb).toFixed(1) + ' t';
+  const status = Sim.formatClock(replayClock + t) + ' GCT · ' + Math.abs(angle).toFixed(1) + '° ' + (angle < 0 ? 'bow down' : 'stern down');
+  document.getElementById('replay-water').textContent = water;
+  document.getElementById('replay-reserve').textContent = reserve;
   document.getElementById('replay-status').textContent = status;
-  replaySeek.setAttribute('aria-valuetext', status);
-  document.getElementById('replay-rooms').textContent = comps.map((_, i) =>
-    replayNames[i] + ' ' + lerp(a.water[i], b.water[i]).toFixed(1) + '\u00a0t').join(' · ');
+  replaySeek.setAttribute('aria-valuetext', `${status} · ${water} water aboard · ${reserve} reserve buoyancy`);
+  document.getElementById('replay-rooms').textContent = roomWater.map((amount, i) =>
+    replayNames[i] + ' ' + amount.toFixed(1) + '\u00a0t').join(' · ');
   replayEventIndex = selected ?? replayEvents.findLastIndex(e => e.t <= t + 0.001);
   const event = replayEvents[replayEventIndex];
   document.getElementById('replay-event').textContent = event ? Sim.formatClock(replayClock + event.t) + ' · ' + event.text : '';
@@ -5371,22 +5460,43 @@ for (const dir of ['prev', 'next']) document.getElementById('replay-' + dir).add
   seekReplay(replayEvents[i].t, i);
 });
 document.getElementById('replay-tow').addEventListener('click', () => seekReplay(replayFrames.at(-1).t));
-const firstPumpEvent = () => replayEvents.findIndex(e => e.kind === 'pump');
-const replayPump = document.getElementById('replay-pump');
-replayPump.addEventListener('click', () => {
-  const i = firstPumpEvent();
-  seekReplay(replayEvents[i].t, i);
+const replayJumps = ['leak', 'pump'].map(kind => ({ kind, button: document.getElementById('replay-' + kind) }));
+for (const { kind, button } of replayJumps) button.addEventListener('click', () => {
+  const i = replayEvents.findIndex(e => e.kind === kind);
+  if (i >= 0) seekReplay(replayEvents[i].t, i);
 });
 const replayButton = '<button type="button" class="replay-button">Review your run in cutaway</button>';
-for (const panel of [introEl, bannerEl]) panel.addEventListener('click', e => {
-  if (!e.target.closest('.replay-button')) return;
-  e.stopImmediatePropagation();
+function openReplay(rows) {
   if (!replayComplete || replayDialog.open) return;
+  const debrief = !!rows;
+  replayTitle.textContent = debrief ? '14:23. The tow begins' : 'Your run in cutaway';
+  replayDebrief.hidden = !debrief;
+  document.getElementById('replay-dismiss').hidden = debrief;
+  document.getElementById('replay-compartments').open = false;
+  document.getElementById('replay-history').open = false;
+  if (debrief) {
+    document.getElementById('replay-summary').innerHTML = '<p>' + esc(data.act3.end_text) + '</p>' + tableOf(rows);
+    audio.setPaused(true);
+  }
   replaySeek.step = 'any';
   replaySeek.max = replayFrames.at(-1).t - replayFrames[0].t;
-  replayPump.disabled = firstPumpEvent() < 0;
+  for (const { kind, button } of replayJumps) button.disabled = !replayEvents.some(e => e.kind === kind);
   seekReplay(replayFrames.at(-1).t);
   replayDialog.showModal();
+  replayTitle.focus();
+  replayDialog.scrollTop = 0;
+}
+bannerEl.addEventListener('click', e => {
+  if (e.target.closest('.replay-button')) openReplay();
+});
+replayDialog.addEventListener('cancel', e => { if (!replayDebrief.hidden) e.preventDefault(); });
+document.getElementById('replay-rescue').addEventListener('click', () => {
+  story.epi = data.epilogue.scenes.findIndex(sc => sc.id === 'awash') - 1;
+  nextEpilogue();
+});
+document.getElementById('replay-story').addEventListener('click', () => {
+  story.epi = -1;
+  nextEpilogue();
 });
 let cardDone = null;
 // A card between scenes: the sim waits until it is dismissed.
@@ -5394,18 +5504,25 @@ function showCard(date, title, paras, extraHtml, onDone, go) {
   document.getElementById('intro-date').textContent = date || '';
   document.getElementById('intro-title').textContent = title;
   document.getElementById('intro-text').innerHTML = (paras || []).map(p => '<p>' + esc(p) + '</p>').join('') + (extraHtml || '');
-  document.getElementById('intro-go').textContent = go || 'Click to continue.';
+  introGo.textContent = go ?? 'Click to continue.';
+  introGo.hidden = go === '';
   introEl.style.display = 'flex'; paused = true; cardDone = onDone || null; document.exitPointerLock();
 }
-introEl.addEventListener('click', () => {
+function dismissCard(onDone = cardDone) {
   introEl.style.display = 'none'; paused = false; audio.start();
-  const f = cardDone; cardDone = null; if (f) f();
-  if (introEl.style.display !== 'flex' && !stageOver()) lockPointer();
+  cardDone = null;
+  onDone?.();
+  if (!introUp() && !stageOver()) lockPointer();
+}
+introEl.addEventListener('click', e => {
+  if (e.target.closest('#watch-approach')) dismissCard(() => exterior.begin(false));
+  else if (e.target.closest('#board-game') || !introEl.querySelector('.start-actions')) dismissCard();
 });
 const tableOf = (rows, head) => '<table><tr><th></th><th>You</th><th>' + esc(head || '4 June 1944') + '</th></tr>' +
   rows.map(r => `<tr><th>${esc(r[0])}</th><td>${esc(r[1])}</td><td>${esc(r[2])}</td></tr>`).join('') + '</table>';
 function resetUi() {
   closePlayableDeck(); acc = 0;
+  salvageSurveyRead = false;
   if (replayDialog.open) replayDialog.close();
   forecast = null; forecastDue = 0; turning = null; holding = null; waiting = false; waitConfirm = 0; timeScale = 1;
   playPaused = false; pauseEl.style.display = 'none'; glossaryEl.style.display = 'none'; keys.clear(); dragLook = false; audio.setPaused(false);
@@ -5428,7 +5545,14 @@ function restart(atBoarding, intro) {
   resetFloodMarks();
   recordReplay('Boarding begins.');
   act.update(); atLadder(); rebuildPumpMeshes();
-  if (intro) { unlock('act2'); showCard('4 June 1944', data.act2.intro_title, data.act2.intro); }
+  guideBoarding = !!atBoarding && !waterDemo;
+  if (guideBoarding) {
+    player.x = comps[strainer.o.c].xF + 0.5;
+    player.yaw = Math.PI + 0.16;
+    player.pitch = -0.12;
+    player.eye = DUCK;
+  }
+  if (intro) { unlock('act2'); showCard('4 June 1944', data.act2.intro_title, data.act2.intro, '', null, 'Click or Enter to board.'); }
 }
 function act2Won() {
   const rows = act.summary();
@@ -5458,9 +5582,7 @@ function act3Won() {
   waiting = false; keys.clear(); dragLook = false;
   msgEl.style.display = 'none'; promptEl.style.display = 'none';
   tintEl.style.opacity = 0;
-  exterior.startTow(sim.s, () => {
-    showCard('4 June 1944', '14:23. The tow begins', [data.act3.end_text], tableOf(rows) + replayButton, () => { story.epi = -1; nextEpilogue(); });
-  });
+  exterior.startTow(sim.s, () => openReplay(rows));
 }
 // Act 4: the vignettes in order
 function nextEpilogue() {
@@ -5537,10 +5659,20 @@ function restartStage() {
   if (story.act === 4) { story.epi--; nextEpilogue(); return; }
   restart(true, true);
 }
-function startGame() { story.results = {}; replayComplete = false; exterior.begin(); }
+function startGame() {
+  story.results = {};
+  unlock('start');
+  restart(true, false);
+  showCard('4 June 1944 · Off Rio de Oro', document.title, data.act2.intro,
+    `<nav class="start-actions" aria-label="Start options">
+      <button class="primary" id="board-game" type="button">Board U-505</button>
+      <button id="watch-approach" type="button">Watch the approach</button>
+    </nav>`, () => unlock('act2'), '');
+  document.getElementById('board-game').focus();
+}
 // debug and test jumps
 function jump(where) {
-  if (where === 'act1') { startGame(); return; }
+  if (where === 'act1') { story.results = {}; replayComplete = false; exterior.begin(); return; }
   if (where === 'surfacing') { exterior.previewSurfacing(); return; }
   if (where === 'act2') { restart(true, true); return; }
   if (where === 'act3' || where === 'act3-split') {
@@ -5995,6 +6127,7 @@ function drawProfile() {
 // the diesels rumble through the whole hull until their stop levers are pulled. Closed hatches muffle.
 const audio = (() => {
   let ctx = null, master = null, noise = null, muted = false, outputPaused = false, diesel = 1, creakDue = 4, lastX = null, lastS = null;
+  let outputMeter = null, outputSamples = null;
   const ch = {}, cl = (v, a, b) => v < a ? a : v > b ? b : v;
   let hatchFilter;
   function route(name, node) {
@@ -6091,9 +6224,9 @@ const audio = (() => {
   function update(dt) {
     if (!ctx || ctx.state !== 'running') return;
     const s = sim.s;
-    const demoShot = waterDemo && (story.act === 1 || exterior.towing);
-    const quiet = stageOver() || waiting || story.onDeck || demoShot;
-    set('sea', (demoShot || (story.onDeck && !stageOver())) ? 0.14 + 0.035 * Math.sin(ctx.currentTime * 0.9) : 0, 0);
+    const exteriorShot = story.act === 1 || exterior.towing;
+    const quiet = introUp() || stageOver() || waiting || story.onDeck || exteriorShot;
+    set('sea', !introUp() && (exteriorShot || (story.onDeck && !stageOver())) ? 0.14 + 0.035 * Math.sin(ctx.currentTime * 0.9) : 0, 0);
     // diesels spin down over a few seconds once stopped
     const run = sim.fuel.length ? sim.fuel.filter(k => s.valve[k] > 0).length / sim.fuel.length : 1;
     diesel += ((s.enginesOn && s.status !== 'lost' ? run : 0) - diesel) * (1 - Math.exp(-dt / 2.5));
@@ -6123,6 +6256,19 @@ const audio = (() => {
   function setPaused(value) { outputPaused = value; if (master) master.gain.setTargetAtTime(muted || outputPaused ? 0 : 0.8, ctx.currentTime, 0.05); }
   function toggleMute() { muted = !muted; if (master) master.gain.setTargetAtTime(muted || outputPaused ? 0 : 0.8, ctx.currentTime, 0.05); return muted; }
   return { start, update, toggleMute, setPaused, get ctx() { return ctx; }, get muted() { return muted; },
+    // A lazy, silent tap for browser QA; measuring never starts or unmutes audio.
+    output() {
+      if (!ctx) return { state: 'not started', muted, paused: outputPaused, gain: 0, rms: 0, peak: 0 };
+      if (!outputMeter) {
+        outputMeter = ctx.createAnalyser(); outputMeter.fftSize = 1024;
+        outputSamples = new Float32Array(outputMeter.fftSize); master.connect(outputMeter);
+      }
+      outputMeter.getFloatTimeDomainData(outputSamples);
+      let squares = 0, peak = 0;
+      for (const v of outputSamples) { squares += v * v; peak = Math.max(peak, Math.abs(v)); }
+      return { state: ctx.state, muted, paused: outputPaused, gain: master.gain.value,
+        rms: Math.sqrt(squares / outputSamples.length), peak };
+    },
     levels() { const out = {}; for (const k of Object.keys(ch)) out[k] = +ch[k].level.toFixed(3); out.diesel_spin = +diesel.toFixed(3); return out; },
     pans() { const out = {}; for (const k of Object.keys(ch)) out[k] = +(ch[k].panV || 0).toFixed(2); return out; } };
 })();
@@ -6379,8 +6525,175 @@ const exterior = (() => {
   xs.add(sky);
 
   const deckSeaZ = -164;
-  const deckY = 2.57, bridgeY = hull.hatch.height_above_keel_m - hull.keel_to_hull_bottom_m - R;
-  const stairs = [-8.1, -3.05, 1.9, 7.0];
+  // ---- Walkable deck, ported from the Blender model in tools/blender/u505 (hull.py: T_W, T_B and the
+  // sheer in zt_at; deck.py: deck_z and plank thickness; tower.py: TW, egg(), HATCH_Y, LADDER_X, RUNG_Y).
+  // Positions are sim x (toward the bow) and side (to starboard); heights are metres above the pressure-hull
+  // axis, the uboat group's y. Three levels: the weather deck, the lower Wintergarten platform ('low') and
+  // the upper platform and bridge ('up'), joined by ladders. Shapes and positions are estimated (see the model).
+  const MODEL_AXIS = 2.225;   // the model's pressure-hull axis above its origin
+  const FOAM_REF = 2.57;      // waterline reference the casing-foam contact window was tuned against
+  const deckLayout = (() => {
+    const clamp = THREE.MathUtils.clamp, PAD = .15;   // player clearance; keeps the eye beyond the camera's near plane
+    const T_W = [[-37.8, .30], [-37.3, .85], [-36.2, 1.25], [-34.0, 1.52], [-30.0, 1.68], [-24.0, 1.78], [18.0, 1.78],
+      [23.0, 1.62], [27.0, 1.36], [31.0, 1.0], [34.5, .62], [37.0, .32], [38.4, .12], [39.0, .03]];
+    const T_B = [[-37.8, .34], [-37.3, .95], [-36.2, 1.38], [-34.0, 1.66], [-31.0, 1.92], [-27.5, 2.2], [-23.0, 2.33],
+      [21.0, 2.33], [25.0, 2.18], [28.5, 1.88], [31.5, 1.45], [34.5, .98], [36.8, .56], [38.2, .26], [39.0, .04]];
+    function pchip(table, x) {   // monotone cubic, as in common.py
+      const n = table.length;
+      if (x <= table[0][0]) return table[0][1];
+      if (x >= table[n - 1][0]) return table[n - 1][1];
+      const h = [], d = [];
+      for (let i = 0; i < n - 1; i++) { h.push(table[i + 1][0] - table[i][0]); d.push((table[i + 1][1] - table[i][1]) / h[i]); }
+      const m = new Array(n).fill(0); m[0] = d[0]; m[n - 1] = d[n - 2];
+      for (let i = 1; i < n - 1; i++) {
+        if (d[i - 1] * d[i] <= 0) continue;
+        const w1 = 2 * h[i] + h[i - 1], w2 = h[i] + 2 * h[i - 1];
+        m[i] = (w1 + w2) / (w1 / d[i - 1] + w2 / d[i]);
+      }
+      let i = 0; while (i < n - 2 && table[i + 1][0] <= x) i++;
+      const t = (x - table[i][0]) / h[i];
+      return (1 + 2 * t) * (1 - t) ** 2 * table[i][1] + t * (1 - t) ** 2 * h[i] * m[i]
+        + t * t * (3 - 2 * t) * table[i + 1][1] + t * t * (t - 1) * h[i] * m[i + 1];
+    }
+    const ss = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+    const sheer = x => 5.9 + .85 * ss(20, 39, x) ** 1.6 - .2 * ss(-26, -37.8, x);
+    const halfWidth = x => pchip(T_W, x);
+    function deckTop(x, side) {   // top of the slatted deck
+      const w = halfWidth(x), camber = .06 * Math.min(1, w / 1.6);
+      return sheer(x) + camber * (1 - Math.min(1, Math.abs(side) / Math.max(w, 1e-3)) ** 2) + .045 - MODEL_AXIS;
+    }
+    const LOW = 7.13 - MODEL_AXIS, UP = 8.13 - MODEL_AXIS;   // grating tops
+    // Beam at the waterline: saddle tank where there is one, else the outer hull (for the casing foam).
+    function waterBeam(x) {   // hull.py tank_section envelope; 0.54 of the half-width reaches the waterline
+      const u = (x - .5) / 21, p = u > 0 ? 3.2 : 2.6;
+      const f = Math.abs(u) < 1 ? Math.max(0, 1 - Math.abs(u) ** p) ** (.8 / p) : 0;
+      const tank = f > 0 ? 1.9 - .75 * (1 - f) + (1.53 * f + .02) * .54 : 0;
+      return Math.max(tank, pchip(T_B, x) * .92);
+    }
+    const sePow = (c, e) => Math.sign(c) * Math.abs(c) ** e;
+    // Plan outline as [side, x] points: alpha 0 starboard, pi/2 forward, pi port, 3pi/2 aft (tower.py egg).
+    function egg(W, yf, yb, ym, n, ef, eb, a0 = 0, a1 = 2 * Math.PI, closed = true) {
+      const out = [], count = closed ? n : n + 1;
+      for (let i = 0; i < count; i++) {
+        const a = a0 + (a1 - a0) * i / n, c = Math.cos(a), s = Math.sin(a);
+        out.push([W * sePow(c, 2 / 2.6), s >= 0 ? ym + (yf - ym) * Math.abs(s) ** (2 / ef) : ym - (ym - yb) * Math.abs(s) ** (2 / eb)]);
+      }
+      return out;
+    }
+    function offset(pts, d) {
+      return pts.map((p, i) => {
+        const a = pts[(i - 1 + pts.length) % pts.length], b = pts[(i + 1) % pts.length];
+        const tx = b[0] - a[0], ty = b[1] - a[1], L = Math.hypot(tx, ty) || 1;
+        return [p[0] + ty / L * d, p[1] - tx / L * d];
+      });
+    }
+    function inside(poly, s, x) {
+      let hit = false;
+      for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        const [si, xi] = poly[i], [sj, xj] = poly[j];
+        if ((xi > x) !== (xj > x) && s < (sj - si) * (x - xi) / (xj - xi) + si) hit = !hit;
+      }
+      return hit;
+    }
+    function nearLine(line, s, x, r) {
+      for (let i = 0; i < line.length - 1; i++) {
+        const [s0, x0] = line[i], [s1, x1] = line[i + 1], ds = s1 - s0, dx = x1 - x0;
+        const t = clamp(((s - s0) * ds + (x - x0) * dx) / (ds * ds + dx * dx || 1), 0, 1);
+        if (Math.hypot(s - s0 - t * ds, x - x0 - t * dx) < r) return true;
+      }
+      return false;
+    }
+    const body = egg(1.12, 4.30, -4.30, .9, 96, 1.55, 2.4), aftFairing = egg(1.05, -2.8, -7.05, -4.0, 72, 2.4, 1.9);
+    const gap = 38 * Math.PI / 180;
+    const bulwark = egg(1.30, 4.45, -1.75, 1.5, 110, 1.5, 2.2, -Math.PI / 2 + gap, 3 * Math.PI / 2 - gap, false);
+    const hood = [];
+    for (let k = 0; k <= 12; k++) { const t = k / 12; hood.push([.42 * Math.sqrt(Math.max(0, 1 - t ** 2.2)) + PAD, 4.15 + 1.35 * t]); }
+    const hoodPoly = hood.concat(hood.slice().reverse().map(([s, x]) => [-s, x]));
+    const towerDeck = [offset(body, PAD), offset(aftFairing, PAD), hoodPoly];
+    const lowArea = offset(aftFairing, .12 - PAD), bodyGuard = offset(body, PAD), upArea = offset(body, .26 - PAD);
+    const hatchX = hull.hatch.x_m;   // the model's bridge hatch is placed here too (tower.py HATCH_Y)
+    const circle = (x, s, r) => ({ x, s, r });
+    const obstacles = {
+      deck: [circle(22.5, 0, .45), circle(9.6, 0, .45), circle(-10.6, 0, .45), circle(-24.8, 0, .45),   // hatches
+        circle(30.0, 0, .4), circle(-29.6, 0, .4),                                                      // capstans
+        circle(-7.75, 1.2, .2), circle(-7.75, -1.2, .2), circle(-14, .52, .21)],                        // canisters, tide fitting
+      low: [circle(-5.55, 0, .35)],                         // 37 mm pedestal (its seats are knee height and passable)
+      // hatch coaming, attack and sky periscope standards, UZO post, binnacle, voice pipe, rudder indicator,
+      // aerial housing, signal-lamp post; then the twin 20 mm mounts and ready-use lockers
+      up: [circle(hatchX, 0, .37), circle(.35, 0, .34), circle(1.55, 0, .4), circle(3.75, 0, .14),
+        circle(3.1, .45, .16), circle(3.2, -.55, .06), circle(2.9, -.75, .12), circle(.8, -.95, .07), circle(1.5, .9, .05),
+        circle(-2.95, .68, .32), circle(-2.95, -.68, .32), circle(-1.95, 1.05, .3), circle(-1.95, -1.05, .3)]
+    };
+    for (const by of [31.2, 17.5, -15.5, -31.0]) for (const s of [1, -1]) for (const dy of [-.2, .2]) {
+      obstacles.deck.push(circle(by + dy, s * (halfWidth(by) - .42), .1));   // bitts
+    }
+    const clear = (level, x, s) => obstacles[level].every(o => Math.hypot(x - o.x, s - o.s) >= o.r + PAD);
+    function walkable(level, x, s) {
+      if (level === 'deck') {
+        if (x < -35.4 || x > 34.4 || Math.abs(s) > halfWidth(x) - PAD) return false;
+        if (x > -7.6 && x < 5.8 && towerDeck.some(poly => inside(poly, s, x))) return false;
+      } else if (level === 'low') {
+        if (!inside(lowArea, s, x) || inside(bodyGuard, s, x)) return false;
+      } else if (level === 'up') {
+        if (!inside(upArea, s, x) || nearLine(bulwark, s, x, PAD + .06)) return false;   // wall is about 0.2 thick
+      } else return false;
+      return clear(level, x, s);
+    }
+    // Walk-on ladders between the two platforms: a rectangle in (x, side); t runs 0 at end a to 1 at end b
+    // and the height interpolates between the levels.
+    const ladders = [];
+    // Deck-side climbs are actions (E at the foot or the top), like the hatch: walking past them along the
+    // narrow walkway beside the tower must not start a climb. Each has a foot landing on deck and a top landing.
+    const climbs = [];
+    for (const k of [1, -1]) {
+      const ladderX = .78, top = -3.84, foot = top - .42;   // lower -> upper platform (tower.py LADDER_X)
+      ladders.push({ id: 'ladder' + ladders.length, a: 'low', b: 'up',
+        has: (x, s) => x > foot - .05 && x < top + .4 && s * k > ladderX - .25 && s * k < ladderX + .25,
+        t: (x) => clamp((x - foot) / (top - foot), 0, 1) });
+      // Rungs on the aft fairing, deck <-> lower platform (tower.py RUNG_Y).
+      climbs.push({ foot: { level: 'deck', x: -5.6, side: k * 1.42 }, top: { level: 'low', x: -5.6, side: k * .8 } });
+      // Side ladders, deck <-> upper platform (tower.py SIDE_LADDER_Y). A gameplay fitting: at the game's
+      // 21-23 degree stern-down trims the aft rungs land in the sea, and these reach the dry deck.
+      climbs.push({ foot: { level: 'deck', x: -2.5, side: k * 1.45 }, top: { level: 'up', x: -2.5, side: k * .95 } });
+      // Rungs up the fairwater and over the bulwark, deck <-> bridge (tower.py FWD_RUNG_Y). A gameplay fitting
+      // that stays dry about 2 m longer as the boat settles stern-down.
+      climbs.push({ foot: { level: 'deck', x: 2.6, side: k * 1.45 }, top: { level: 'up', x: 2.6, side: k * .8 } });
+    }
+    // The climb whose foot or top is within reach, with the landing at its other end.
+    function nearClimb(level, x, s) {
+      for (const c of climbs) {
+        for (const [here, there] of [[c.foot, c.top], [c.top, c.foot]]) {
+          if (here.level === level && Math.hypot(x - here.x, s - here.side) < .6) {
+            return { landing: there, up: there === c.top };
+          }
+        }
+      }
+      return null;
+    }
+    const ladderOf = id => ladders.find(l => l.id === id);
+    function height(level, x, s) {
+      if (level === 'deck') return deckTop(x, s);
+      if (level === 'low') return LOW;
+      if (level === 'up') return UP;
+      const l = ladderOf(level), ends = [l.a, l.b].map(e => e === 'deck' ? deckTop(x, s) : e === 'low' ? LOW : UP);
+      return THREE.MathUtils.lerp(ends[0], ends[1], l.t(x, s));
+    }
+    // One move from (x0, s0) on level to (x, s). Returns the new level, or null if the move is blocked.
+    function step(level, x0, s0, x, s) {
+      for (const l of ladders) {
+        if (!l.has(x, s)) continue;
+        const t = l.t(x, s);
+        if (level === l.id || (level === l.a && t < .35) || (level === l.b && t > .65)) return l.id;
+      }
+      let target = level;
+      const on = ladderOf(level);
+      if (on) target = on.t(x0, s0) < .5 ? on.a : on.b;
+      return walkable(target, x, s) ? target : null;
+    }
+    return { halfWidth, deckTop, waterBeam, height, step, walkable, nearClimb, LOW, UP, hatchX,
+      mid: deckTop(0, 0), spawn: { level: 'up', x: -.2, side: .7 }, washSpawn: { level: 'low', x: -4.9, side: .5 },   // dry at the 7 June trim
+      upArea, lowArea };
+  })();
   const roughSea = 1.32;
   const calmSea = 1;
   let baseSeaStrength = calmSea, waveScale = 1;
@@ -6407,7 +6720,8 @@ const exterior = (() => {
     seaBoatFromWorld: { value: new THREE.Matrix4() },
     towDrive: { value: 0 }, towCarrierFromWorld: { value: new THREE.Matrix4() },
     riseWater: { value: new THREE.Vector4() },
-    deckHeights: { value: new THREE.Vector2(deckY, bridgeY) }, deckStairs: { value: new THREE.Vector4(...stairs) },
+    // The deck-view transmission treats the casing as one deck height (the tower blocks the water itself).
+    deckHeights: { value: new THREE.Vector2(deckLayout.mid, deckLayout.mid) }, deckStairs: { value: new THREE.Vector4(0, 1, 2, 3) },
     waveShape: { value: waves.map(w => new THREE.Vector4(w.x, w.z, w.k, w.amplitude)) },
     waveMotion: { value: waves.map(w => new THREE.Vector3(w.speed, w.phase, w.horizontal)) },
     rippleMap: { value: surfaceTile('ocean').normal }
@@ -6692,109 +7006,83 @@ const exterior = (() => {
     shape(uboat, new THREE.BoxGeometry(2.25, .95, 4.8), casingPaint, 0, 3.33, 5.2),
     shape(uboat, new THREE.CylinderGeometry(.14, .16, 2.1, 6), recess, .36, 5.98, -.35)];
 
-  // The playable bridge and stairs share the same deck profile as the camera and movement bounds.
-  const deckProfile = [[-33, .6], [-28, 1.6], [-12, 2.26], [20, 2.24], [29, 1.6], [35, .53]];
-  const deckFloor = x => THREE.MathUtils.lerp(deckY, bridgeY, THREE.MathUtils.clamp(
-    Math.min((x - stairs[0]) / (stairs[1] - stairs[0]), (stairs[3] - x) / (stairs[3] - stairs[2])), 0, 1));
-  function casingWidth(x) {
-    const k = deckProfile.findIndex(([along]) => along >= x);
-    if (k <= 0) return (k < 0 ? deckProfile.at(-1) : deckProfile[0])[1];
-    const [a, left] = deckProfile[k - 1], [b, right] = deckProfile[k];
-    return THREE.MathUtils.lerp(left, right, (x - a) / (b - a));
-  }
-  const deckHalf = x => Math.min(casingWidth(x) - .25, 1.02 + .42 * Math.max(stairs[0] - x, x - stairs[3], 0));
-  const hatchDeckSide = -.4;
-  const walkDeckModel = new THREE.Group(); walkDeckModel.visible = false; uboat.add(walkDeckModel);
-  const tread = flat(0x435454), plankPaint = flat(0x36464a), liftPaint = flat(0x575f5d), brassDeck = flat(0x9b8663);
-  const gunmetal = flat(0x263538), grip = flat(0x8c9b99);
-  const plankCount = 107, deckPlanks = new THREE.InstancedMesh(new THREE.BoxGeometry(1, .045, .53), plankPaint, plankCount);
-  const plank = new THREE.Object3D();
-  for (let k = 0; k < plankCount; k++) {
-    const x = -33 + k * .63;
-    plank.position.set(0, deckY - .022, -x);
-    plank.scale.set(2 * (casingWidth(x) - .1), 1, 1); plank.updateMatrix(); deckPlanks.setMatrixAt(k, plank.matrix);
-  }
-  walkDeckModel.add(deckPlanks);
-  const platformLength = stairs[2] - stairs[1], platformZ = -(stairs[1] + stairs[2]) / 2;
-  shape(walkDeckModel, new THREE.BoxGeometry(2.18, bridgeY - deckY, platformLength), casingPaint, 0, (bridgeY + deckY) / 2, platformZ);
-  shape(walkDeckModel, new THREE.BoxGeometry(2.54, .14, platformLength), tread, 0, bridgeY - .07, platformZ);
-  const grabRail = new THREE.CylinderGeometry(.037, .037, 1, 6);
-  function deckRail(a, b, material) {
-    const axis = new THREE.Vector3().subVectors(b, a);
-    const beam = shape(walkDeckModel, grabRail, material, 0, 0, 0);
-    beam.position.copy(a).lerp(b, .5);
-    beam.scale.y = axis.length(); beam.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), axis.normalize());
-  }
-  const stairTreads = [];
-  for (const [lower, upper] of [[stairs[0], stairs[1]], [stairs[3], stairs[2]]]) {
-    const stepCount = 16, depth = Math.abs(upper - lower) / stepCount;
-    for (let k = 0; k < stepCount; k++) {
-      const x = THREE.MathUtils.lerp(lower, upper, (k + .5) / stepCount), height = deckFloor(x);
-      stairTreads.push({ from: x - depth / 2, to: x + depth / 2, height });
-      shape(walkDeckModel, new THREE.BoxGeometry(2.32, .14, depth + .014), k % 4 === 3 ? liftPaint : tread, 0, height - .07, -x);
+  // Detailed U-505 model (art/u505_game.glb, built and baked by tools/blender/u505). It loads in the
+  // background and replaces the primitives in the surfacing, deck and tow scenes; the walkable deck
+  // (deckLayout) is ported from the same model. The primitives stay as the fallback (single-file preview,
+  // file://, offline, ?boatart=0); on the deck they are lifted so the walk heights land near their casing.
+  const BOAT_ART_WATERLINE = 4.30;   // model's surfaced waterline above its origin (pressure-hull bottom)
+  const boatArt = { model: null, onDeck: false };
+  const simpleHull = [hullM, bow, stern, casing];
+  const fallbackDeckLift = deckLayout.mid - 2.52;   // primitive casing top is at 2.52
+  for (const part of [...simpleHull, ...exteriorTower]) part.userData.baseY = part.position.y;
+  function setBoatArt() {
+    const art = !!boatArt.model;
+    if (art) {
+      boatArt.model.visible = true;
+      // On deck the model is fixed to the hull frame, so the sim's draught and trim float it.
+      if (boatArt.onDeck) boatArt.model.position.y = -MODEL_AXIS;
+    }
+    const lift = boatArt.onDeck && !art ? fallbackDeckLift : 0;
+    for (const part of [...simpleHull, ...exteriorTower]) {
+      part.visible = !art;
+      part.position.y = part.userData.baseY + lift;
     }
   }
-  const rails = [-33, -28, -20, -12, stairs[0], stairs[1], stairs[2], stairs[3], 14, 20, 29, 35];
-  for (const side of [-1, 1]) {
-    const railPoint = (x, h) => new THREE.Vector3(side * (deckHalf(x) + .16), deckFloor(x) + h, -x);
-    rails.slice(1).forEach((x, k) => {
-      const a = rails[k];
-      deckRail(railPoint(a, .78), railPoint(x, .78), grip);
-      const n = Math.ceil((x - a) / 2.1);
-      for (let i = 0; i < n; i++) {
-        const along = THREE.MathUtils.lerp(a, x, i / n);
-        deckRail(railPoint(along, 0), railPoint(along, .78), grip);
-      }
-    });
+  // Place the model so its waterline sits at the given height in the uboat group's frame.
+  function placeBoatArt(waterY) {
+    if (boatArt.model) boatArt.model.position.y = waterY - BOAT_ART_WATERLINE;
   }
-  const hatchX = hull.hatch.x_m;
-  shape(walkDeckModel, new THREE.CylinderGeometry(.48, .52, .19, 12), brassDeck, hatchDeckSide, bridgeY + .095, -hatchX);
-  shape(walkDeckModel, new THREE.CylinderGeometry(.39, .40, .05, 12), gunmetal, hatchDeckSide, bridgeY + .20, -hatchX);
-  const hatchLid = shape(walkDeckModel, new THREE.CylinderGeometry(.43, .43, .075, 12), liftPaint, hatchDeckSide, bridgeY + .48, -hatchX - .44);
-  hatchLid.rotation.x = -1.08;
+  async function loadBoatArt() {
+    try {
+      const [{ GLTFLoader }, { DRACOLoader }] = await Promise.all([
+        import('three/addons/loaders/GLTFLoader.js'), import('three/addons/loaders/DRACOLoader.js')]);
+      const draco = new DRACOLoader();
+      draco.setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/libs/draco/gltf/');
+      const loader = new GLTFLoader().setDRACOLoader(draco);
+      const gltf = await loader.loadAsync('art/u505_game.glb');
+      draco.dispose();
+      const model = gltf.scene;
+      model.name = 'U-505 model';
+      uboat.add(model);
+      boatArt.model = model;
+      placeBoatArt(-.8);
+      setBoatArt();
+      // Compile now, so the shaders don't stall the first frame she surfaces.
+      if (renderer.compileAsync) await renderer.compileAsync(xs, cam);
+    } catch (error) {
+      console.warn('U-505 model not loaded; the simple boat stays in use.', error);
+    }
+  }
+  if (pageOptions.get('boatart') !== '0') loadBoatArt();
+
+  // The playable deck follows deckLayout (the model's own deck, platforms and bridge). The model supplies
+  // the hull, tower, hatch, rails and ladders; this group keeps only the game's own props and the wash.
+  const hatchX = deckLayout.hatchX;
+  const walkDeckModel = new THREE.Group(); walkDeckModel.visible = false; uboat.add(walkDeckModel);
+  const brassDeck = flat(0x9b8663), gunmetal = flat(0x263538), liftPaint = flat(0x575f5d);   // liftPaint: the tug
   const hatchPlate = label(['CONTROL ROOM', 'HATCH'], .77, .22);
-  hatchPlate.position.set(.12, bridgeY + .035, -hatchX -.33); hatchPlate.rotation.x = -Math.PI / 2;
+  hatchPlate.position.set(.78, deckLayout.UP + .012, -hatchX); hatchPlate.rotation.x = -Math.PI / 2;
   walkDeckModel.add(hatchPlate);
-  shape(walkDeckModel, new THREE.CylinderGeometry(.11, .16, 2.1, 8), casingPaint, .72, bridgeY + 1.04, -1.1);
-  shape(walkDeckModel, new THREE.CylinderGeometry(.16, .16, .23, 8), gunmetal, .72, bridgeY + 2.02, -1.1);
-  for (const x of [-27.5, 28.5]) for (const side of [-.55, .55]) {
-    shape(walkDeckModel, new THREE.CylinderGeometry(.12, .17, .32, 10), liftPaint, side, deckY + .16, -x);
-    shape(walkDeckModel, new THREE.CylinderGeometry(.18, .15, .065, 10), liftPaint, side, deckY + .34, -x);
-  }
   // Painted witness bands on an aft casing fitting. The sea itself reveals the bands.
-  const tideX = -14, tideSide = .52;
-  shape(walkDeckModel, new THREE.CylinderGeometry(.18, .21, 1.04, 12), gunmetal, tideSide, deckY + .52, -tideX);
+  const tideX = -14, tideSide = .52, tideBase = deckLayout.deckTop(tideX, tideSide);
+  shape(walkDeckModel, new THREE.CylinderGeometry(.18, .21, 1.04, 12), gunmetal, tideSide, tideBase + .52, -tideX);
   const tidePaint = flat(0xd6b15f);
   for (const level of [.18, .42, .66, .90]) {
     const band = shape(walkDeckModel, new THREE.CylinderGeometry(.214, .214, .13, 12),
-      tidePaint, tideSide, deckY + level, -tideX);
+      tidePaint, tideSide, tideBase + level, -tideX);
     band.name = 'Aft waterline band';
   }
-  const powerLead = shape(walkDeckModel, new THREE.TorusGeometry(.29, .038, 6, 22), brassDeck, .78, bridgeY + .055, 1.45);
+  const powerLead = shape(walkDeckModel, new THREE.TorusGeometry(.29, .038, 6, 22), brassDeck, .55, deckLayout.UP + .05, 1.45);
   powerLead.rotation.x = -Math.PI / 2;
-  finishSurface(plankPaint, 'wood');
-  const deckDetail = roomDetails(walkDeckModel);
-  for (let x = -27; x < 28; x += 1.45) for (const s of [-1, 1]) {
-    const side = s * (casingWidth(x) - .07);
-    deckDetail.add('box', PAL.black, side, deckY - .29, x, .025, .16, .53);
-    if (Math.abs(x) > 9) deckDetail.add('cylinder', PAL.dark, s * (casingWidth(x) - .28), deckY + .035, x, .024, .018, .024);
-  }
-  for (const x of rails) for (const s of [-1, 1]) {
-    deckDetail.add('cylinder', PAL.steel, s * (deckHalf(x) + .16), deckFloor(x) + .055, x, .071, .10, .071);
-  }
-  for (const x of [-26, -19, -12, 14, 21, 28]) {
-    deckDetail.add('box', 0x71817c, 0, deckY + .029, x, 2 * (casingWidth(x) - .17), .012, .028);
-  }
-  deckDetail.finish();
-  // Sample the same sea as the casing. Lay the film on the weather deck and each stair tread.
+  // Sample the same sea as the casing. Lay the film on the weather deck and the tower platforms.
   const deckWash = (() => {
     const positions = [], uv = [], faces = [];
-    function strip(from, to, widthAt, height, steps) {
+    function strip(from, to, widthAt, heightAt, steps) {
       for (let row = 0; row <= steps; row++) {
         const along = THREE.MathUtils.lerp(from, to, row / steps), width = widthAt(along);
         const p = positions.length / 3;
         for (const edge of [-1, 0, 1]) {
-          positions.push(edge * width, height + .014, -along);
+          positions.push(edge * width, heightAt(along, edge * width) + .014, -along);
           uv.push(edge * width, -along);
         }
         if (row) for (let column = 0; column < 2; column++) {
@@ -6803,12 +7091,10 @@ const exterior = (() => {
         }
       }
     }
-    deckProfile.slice(1).forEach(([to], k) => {
-      const from = deckProfile[k][0];
-      strip(from, to, x => casingWidth(x) - .13, deckY, Math.ceil((to - from) / 1.25));
-    });
-    for (const { from, to, height } of stairTreads) strip(from, to, () => 1.15, height, 1);
-    strip(stairs[1], stairs[2], () => 1.26, bridgeY, 5);
+    // The weather deck (with its sheer and camber), then the lower platform and the bridge level.
+    strip(-35.4, 34.4, x => deckLayout.halfWidth(x) - .13, deckLayout.deckTop, 56);
+    strip(-7.0, -4.3, () => .9, () => deckLayout.LOW, 3);
+    strip(-4.5, 4.2, () => 1.2, () => deckLayout.UP, 7);
     const geometry = new THREE.BufferGeometry();
     const vertices = new THREE.Float32BufferAttribute(positions, 3);
     const wetness = new THREE.BufferAttribute(new Float32Array(vertices.count * 2), 2);
@@ -7195,15 +7481,16 @@ const exterior = (() => {
     seaUniforms.riseWater.value.x = 0;
     surfacingSpray.hide();
   }
-  function begin() {
-    story.act = 1; story.awash = null; resetUi(); paused = true;
+  function begin(withBriefing = true) {
+    story.act = 1; story.awash = null; resetUi();
     own.visible = true; de.visible = true;
     clearSurfacing();
     st.t = 0; st.shown = -1; st.dcDone = false; st.gunDue = 0; st.done = false;
     foam.count = 0;
     for (const spray of splashes) spray.group.visible = false;
     unlock('start'); unlock('act1');
-    showCard('4 June 1944', a1.title, [a1.subtitle], '<p class="tag">Once on deck, Enter skips ahead to the boarding.</p>', startOnDeck, 'Click or Enter to begin.');
+    if (withBriefing) showCard('4 June 1944', a1.title, [a1.subtitle], '<p class="tag">Once on deck, Enter skips ahead to the boarding.</p>', startOnDeck, 'Click or Enter to begin.');
+    else startOnDeck();
   }
   function startOnDeck() {
     st.on = true;
@@ -7236,7 +7523,7 @@ const exterior = (() => {
     own.visible = false; de.visible = false; uboat.visible = true;
     carrier.visible = !isJune; tug.visible = isJune;
     walkDeckModel.visible = true; powerLead.visible = isJune;
-    for (const part of exteriorTower) part.visible = false;
+    boatArt.onDeck = true; setBoatArt();
     for (const spray of splashes) spray.group.visible = false;
     sea.material = deckWater;
     seaUniforms.deckView.value = 1;
@@ -7245,14 +7532,17 @@ const exterior = (() => {
     sky.material.uniforms.towLook.value = isJune ? .55 : 1;
     carrier.position.set(22, 0, -318); carrier.rotation.set(0, -.14, 0);
     tug.position.set(48, 0, -153); tug.rotation.set(0, .25, 0);
-    player.x = washView ? stairs[1] + 1 : hatchX + 1.22;
-    player.side = washView ? .24 : .16;
-    player.yaw = Math.PI; player.pitch = washView ? -.74 : -.39;
-    cam.fov = 64; cam.updateProjectionMatrix();
+    // Out of the hatch onto the bridge, or onto the lower platform to watch the aft deck wash.
+    const start = washView ? deckLayout.washSpawn : deckLayout.spawn;
+    player.x = start.x; player.side = start.side; player.deckLevel = start.level;
+    player.yaw = Math.PI; player.pitch = washView ? -.62 : -.39;
+    // Bulwark, guns and fairwater stand close to the eye on deck.
+    cam.fov = 64; cam.near = .08; cam.updateProjectionMatrix();
   }
   function closeDeck() {
     walkDeckModel.visible = false; tug.visible = false; carrier.visible = false;
-    for (const part of exteriorTower) part.visible = true;
+    boatArt.onDeck = false; setBoatArt();
+    cam.near = .3; cam.updateProjectionMatrix();
     sea.material = seaPaint;
     seaUniforms.deckView.value = 0;
     setWaveScale(waveScale, calmSea);
@@ -7261,25 +7551,47 @@ const exterior = (() => {
     sky.material.uniforms.towLook.value = 0;
   }
   function nearDeckHatch() {
-    return Math.hypot(player.x - hatchX, player.side - hatchDeckSide) < 1.54;
+    return player.deckLevel === 'up' && Math.hypot(player.x - hatchX, player.side) < 1.54;
   }
-  function meanDeckFootHeight(x, side) {
+  // A deck-side ladder within reach: 'up' or 'down', or null.
+  function nearClimb() {
+    const c = deckLayout.nearClimb(player.deckLevel, player.x, player.side);
+    return c ? (c.up ? 'up' : 'down') : null;
+  }
+  function climbLadder() {
+    const c = deckLayout.nearClimb(player.deckLevel, player.x, player.side);
+    if (!c) return false;
+    const { level, x, side } = c.landing;
+    if (meanDeckFootHeight(x, side, level) < -.24) {
+      say('Water is washing over the foot of that ladder.', 2.5);
+      return false;
+    }
+    player.x = x; player.side = side; player.deckLevel = level;
+    return true;
+  }
+  // Height of a foothold above the sea surface, for the boat's mean pose.
+  function meanDeckFootHeight(x, side, level = player.deckLevel) {
     const { trim, heel, eW } = sim.s;
-    const rolledHeight = deckFloor(x) * Math.cos(heel) - side * Math.sin(heel);
+    const rolledHeight = deckLayout.height(level, x, side) * Math.cos(heel) - side * Math.sin(heel);
     return R - eW + rolledHeight * Math.cos(trim) + x * Math.sin(trim);
   }
   function walkDeck(dx, ds) {
-    const x = THREE.MathUtils.clamp(player.x + dx, deckProfile[0][0], deckProfile.at(-1)[0]);
-    const half = deckHalf(x);
-    const side = THREE.MathUtils.clamp(player.side + ds, -half, half);
-    if (Math.hypot(x - hatchX, side - hatchDeckSide) < .5 || Math.hypot(x - 1.1, side - .72) < .24) return;
-    const foot = meanDeckFootHeight(x, side);
+    // Try the full move, then slide along whichever axis is free.
+    let move = null;
+    for (const [mx, ms] of [[dx, ds], [dx, 0], [0, ds]]) {
+      if (!mx && !ms) continue;
+      const x = player.x + mx, side = player.side + ms;
+      const level = deckLayout.step(player.deckLevel, player.x, player.side, x, side);
+      if (level) { move = { x, side, level }; break; }
+    }
+    if (!move) return;
+    const foot = meanDeckFootHeight(move.x, move.side, move.level);
     // Keep the player on deck and let them retreat if a rising waterline overtakes their foothold.
     if (foot < -.24 && foot < meanDeckFootHeight(player.x, player.side) - .001) {
       if (msgTime < 1) say('Water is washing over that part of the deck.', 2.5);
       return;
     }
-    player.x = x; player.side = side;
+    player.x = move.x; player.side = move.side; player.deckLevel = move.level;
   }
   function updateDeck(time) {
     const s = sim.s, now = gentleDeck ? 0 : time;
@@ -7295,8 +7607,9 @@ const exterior = (() => {
       const sign = k % 2 ? -1 : 1;
       const along = -32 + ((Math.floor(k / 2) * 3.24 + now * .64 + (sign + 1) * .72) % 66);
       const scatter = Math.sin(k * 5.2 + now * .62);
-      const side = sign * (casingWidth(along) + .47 + .25 * scatter);
-      casingFoamPoint.set(side, deckY, -along).applyMatrix4(uboat.matrixWorld);
+      // Flecks gather where the sea meets the hull at the waterline beam.
+      const side = sign * (deckLayout.waterBeam(along) + .12 + .25 * scatter);
+      casingFoamPoint.set(side, FOAM_REF, -along).applyMatrix4(uboat.matrixWorld);
       const { x, y, z } = casingFoamPoint, surface = swell(x, z, now);
       const clearance = y - surface;
       const contact = THREE.MathUtils.smoothstep(clearance, -1.35, -.50) *
@@ -7310,11 +7623,9 @@ const exterior = (() => {
       foam.setMatrixAt(foam.count++, fleck.matrix);
     }
     foam.instanceMatrix.needsUpdate = true;
-    deckEye.set(player.side, deckFloor(player.x) + EYE, -player.x);
+    deckEye.set(player.side, deckLayout.height(player.deckLevel, player.x, player.side) + EYE, -player.x);
     cam.position.copy(uboat.localToWorld(deckEye));
-    const downStairs = player.x < stairs[1] && player.x > stairs[0] ? -Math.cos(player.yaw)
-      : player.x > stairs[2] && player.x < stairs[3] ? Math.cos(player.yaw) : 0;
-    cam.rotation.set(THREE.MathUtils.clamp(player.pitch - .16 * downStairs, -1.52, 1.52), player.yaw, 0);
+    cam.rotation.set(THREE.MathUtils.clamp(player.pitch, -1.52, 1.52), player.yaw, 0);
     cam.updateMatrixWorld();
   }
   const hatchPoint = new THREE.Vector3(), hatchPose = new THREE.Euler();
@@ -7357,7 +7668,7 @@ const exterior = (() => {
     sky.material.uniforms.towLook.value = 0;
     document.body.classList.remove('on-deck', 'tow-shot');
     captionEl.style.display = 'none';
-    cutsceneControls.textContent = 'Enter skip · P pause · G notebook';
+    cutsceneControls.textContent = 'Enter to board · P pause · G notebook';
   }
   function finishTow() {
     if (!tow) return;
@@ -7381,10 +7692,14 @@ const exterior = (() => {
     const bob = swell(x, z, now);
     uboat.position.set(x, 1.55 - (draught - sim.sc.draught_full_m) + bob * 0.42, z);
     uboat.rotation.set(trim, 0, -heel + (tow.reduced ? 0 : 0.012 * Math.sin(now * 0.8)));
+    placeBoatArt(-1.55);   // waterline at full draught; extra draught lowers the whole group
     carrier.position.set(x, swell(x, -292, now) * 0.25, -294 - tension * 3);
     carrier.rotation.set(0.004 * Math.sin(now), 0, -0.006 * Math.cos(now * 0.7));
     wireStart.set(0, 5.8, 54); carrier.localToWorld(wireStart);
-    wireEnd.set(0, 2.25, -35); uboat.localToWorld(wireEnd);
+    // The wire takes the model's stem fitting when it is shown, else the simple bow.
+    if (boatArt.model && boatArt.model.visible) wireEnd.set(0, boatArt.model.position.y + 6.95, -38.55);
+    else wireEnd.set(0, 2.25, -35);
+    uboat.localToWorld(wireEnd);
     wirePrevious.copy(wireStart);
     for (let i = 0; i < towWire.length; i++) {
       const t = (i + 1) / towWire.length, segment = towWire[i];
@@ -7425,6 +7740,7 @@ const exterior = (() => {
     uboat.position.set(x, -6.0 + 6.8 * surfaced + swell(x, z, now) * .45, z);
     uboat.rotation.set(-.022, Math.PI - angle, .055 * Math.sin(now * 1.28), 'YXZ');
     uboat.visible = clockT >= surfaceTime;
+    placeBoatArt(-.8);   // the group rises to y 0.8 when surfaced
 
     updateSea(now);
     const deckRoll = .024 * Math.sin(now * .69);
@@ -7481,7 +7797,7 @@ const exterior = (() => {
   function resize() { cam.aspect = innerWidth / innerHeight; cam.updateProjectionMatrix(); }
   addEventListener('resize', resize); resize();
   return { scene: xs, camera: cam, begin, finish, update, previewSurfacing, clearSurfacing, startTow, previewTow, updateTow, finishTow, cancelTow,
-    openDeck, closeDeck, updateDeck, walkDeck, nearDeckHatch, hatchDaylight, setWaveScale,
+    openDeck, closeDeck, updateDeck, walkDeck, nearDeckHatch, nearClimb, climbLadder, hatchDaylight, setWaveScale, deckLayout, meanDeckFootHeight,
     get clock() { return Sim.formatClock(from + span * Math.min(1, st.t / a1.seconds)); },
     get running() { return st.on; }, get towing() { return tow !== null; } };
 })();
@@ -7497,8 +7813,8 @@ let acc = 0, slow = 0, gaugeDue = 0, elapsed = 0;
 // everything that moves on with game time: the sim, the act, holds, messages
 function advanceGame(dt) {
   if (waterDemoScene === 'turbulence') { advanceTurbulence(dt); return; }
-  if (playPaused || glossaryOpen()) { acc = 0; return; }
-  if (story.act === 1) { exterior.update(dt); if (waterDemo) audio.update(dt); return; }
+  if (playPaused || glossaryOpen() || replayDialog.open) { acc = 0; return; }
+  if (story.act === 1) { exterior.update(dt); audio.update(dt); return; }
   if (exterior.towing && !waterDemo) { exterior.updateTow(dt); audio.update(dt); return; }
   const aw = story.awash;
   const inPlay = waterDemo || ((story.act === 2 || story.act === 3) ? !act.s.ended : aw ? !aw.ended : false);
@@ -7517,7 +7833,12 @@ function advanceGame(dt) {
   } else acc = 0;
   if (exterior.towing) { exterior.updateTow(dt); audio.update(dt); return; }
   if (!waterDemo && (story.act === 2 || story.act === 3)) {
+    const leakWasUnsealed = story.act === 2 && act.s.doneAt.inflow === undefined;
     act.update();
+    if (leakWasUnsealed && act.s.doneAt.inflow !== undefined) {
+      recordReplay(sim.s.sourceOpen[strainerSrc] ? 'Cooling-water valve shut. The leak stops.' : 'Strainer cover fitted. The leak stops.', 'leak');
+      if (guideBoarding) say('Leak sealed.', 4);
+    }
     for (const text of act.due()) { say(text, 8); unlock('heard'); }
     if (act.s.ended && !introUp() && bannerEl.style.display !== 'flex') {
       if (act.s.ended === 'lost') showLost(); else if (act.s.phase === 2) act2Won();
@@ -7553,6 +7874,7 @@ const crossEl = document.getElementById('cross');
 function frame() {
   const dt = Math.min(0.1, clock.getDelta()); elapsed += dt;
   advanceGame(dt);
+  updateCurrentOrder();
   const basin = waterDemoScene === 'turbulence';
   const outside = story.act === 1 || exterior.towing || story.onDeck;
   crossEl.style.display = basin || (outside && !story.onDeck) || story.act === 5 || (waiting && !story.onDeck) ? 'none' : '';
@@ -7605,7 +7927,7 @@ function auditVisualGeometry() {
 prepareBoatSurfaces();
 globalThis.__u505 = { sim, act, player, data, restart, keys, use, toggleGlossary, seen, readT, auditVisualGeometry,
   get target() { return target; }, get turning() { return turning; }, get holding() { return holding; }, get waiting() { return waiting; },
-  set timeScale(v) { timeScale = v; }, dismissIntro() { if (introUp()) introEl.click(); },
+  set timeScale(v) { timeScale = v; }, dismissIntro() { if (introUp()) dismissCard(); },
   story, jump, exterior, codexOpen, unlock, pausePlay, resumePlay, get playPaused() { return playPaused; }, get introUp() { return introUp(); },
   audio,
   lights: { get pool() { return lampPool; }, get daylight() { return daylight; }, get look() { return lampLook; }, ambient, renderer },
