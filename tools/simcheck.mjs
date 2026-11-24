@@ -214,6 +214,28 @@ const pumpSwap = pumpAct.rigPump(motorIntake) && pumpAct.takePump() && !pumpAct.
   pumpAct.recoverPump(sternIntake) && pumpAct.stowPump() && pumpAct.s.pumpPile === 1 && pumpAct.s.pumpCarried === 0 &&
   pumpSim.s.pumps.length === 1 && pumpSim.s.pumps[0].c === motorIntake;
 
+const replayHatch = pumpSim.doors.findIndex(door => door.a === dieselIntake && door.b === motorIntake);
+const replaySample = (t, water, open) => ({
+  t, water: pumpSim.comps.map(room => water[room.id] ?? 0),
+  doors: pumpSim.doors.map((_, i) => i === replayHatch ? open : true)
+});
+const closedReplayFrames = [
+  replaySample(5, { diesel: 27 }, true), replaySample(10, { diesel: 26 }, false),
+  replaySample(20, { diesel: 25 }, true), replaySample(30, { diesel: 24 }, false),
+  replaySample(40, { aft_torpedo: 32 }, false), replaySample(50, { diesel: 6, aft_torpedo: 4 }, false)
+];
+const replayEvents = [
+  { t: 5, text: 'Strainer cover fitted.', kind: 'leak', compartmentId: 'diesel' },
+  ...[10, 20, 30].map(t => ({ t, text: 'Motor-room hatch operated.', kind: 'hatch', hatchId: pumpSim.doors[replayHatch].id, open: t === 20 })),
+  { t: 40, text: 'Aft pump connected.', kind: 'pump', compartmentId: 'aft_torpedo' }
+];
+const hatchDecision = Act.towDecision(pumpSim, closedReplayFrames, replayEvents);
+const openReplayFrames = [...closedReplayFrames.slice(0, -1), replaySample(50, { diesel: 1, aft_torpedo: 9 }, true)];
+const pumpDecision = Act.towDecision(pumpSim, openReplayFrames, replayEvents);
+const legacyEvents = replayEvents.map(({ t, text, kind }) => ({ t, text, kind }));
+const leakDecision = Act.towDecision(pumpSim, closedReplayFrames, legacyEvents);
+const snapshotDecision = Act.towDecision(pumpSim, openReplayFrames, legacyEvents.slice(1));
+
 console.log('\nAct 4, 7 June (settling, no headway):');
 function playAwash(name, actions, hours = 40) {
   const sim = Sim.create(data), sc = Act.awash(sim, data).start();
@@ -346,6 +368,13 @@ const checks = [
   ['prototype: targeting the isolated diesel pocket removes at least 20 t more from that room', prototypes.every(run =>
     run.splitDiesel.act.s.ended === 'won' && dieselWater(run.splitAft.sim) - dieselWater(run.splitDiesel.sim) >= 20)],
   ['prototype: a dry intake keeps the pump and a recovered pump can be redeployed or stowed', dryAct3 && pumpSwap],
+  ['tow replay: last motor-hatch closure that remains shut uses recorded diesel-room volumes', hatchDecision?.eventIndex === 3 &&
+    hatchDecision.c === dieselIntake && hatchDecision.frame.water[dieselIntake] === 24 && hatchDecision.tow.water[dieselIntake] === 6],
+  ['tow replay: an open motor hatch falls back to recorded volumes for the first connected intake', pumpDecision?.eventIndex === 4 &&
+    pumpDecision.c === sternIntake && pumpDecision.frame.water[sternIntake] === 32 && pumpDecision.tow.water[sternIntake] === 9],
+  ['tow replay: text-only events can use the recorded leak bookmark or the final frame', leakDecision?.eventIndex === 0 &&
+    leakDecision.c === dieselIntake && leakDecision.frame.water[dieselIntake] === 27 &&
+    snapshotDecision?.eventIndex === -1 && snapshotDecision.c === sternIntake && snapshotDecision.frame === undefined],
   ['7 June: she starts nearly awash but still afloat', awashIdle.rb0 > 0 && awashIdle.rb0 < 15],
   ['7 June: with no pumps she founders', awashIdle.sc.ended === 'lost'],
   ['7 June: three electric pumps reach the model buoyancy target (within 40 h)', awashPumps.sc.ended === 'won'],

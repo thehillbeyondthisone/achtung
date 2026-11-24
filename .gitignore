@@ -8,8 +8,17 @@ docs/sources/
 # Node
 node_modules/
 
+# Staged static release and its build dependencies
+/dist/
+
 # Local Claude Code settings
 .claude/settings.local.json
+
+# Scratch / audit working files
+/tmp/
+
+# Trailer source footage (too large for git)
+/trailer/
 
 # OS clutter
 Thumbs.db

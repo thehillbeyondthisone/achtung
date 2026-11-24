@@ -4,17 +4,20 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const root = fileURLToPath(new URL('../', import.meta.url));
-const port = Number(process.argv[2] || 8505);
+const args = process.argv.slice(2);
+const release = args.includes('--release');
+const root = fileURLToPath(new URL(release ? '../dist/u505/' : '../', import.meta.url));
+const port = Number(args.find(arg => arg !== '--release') || 8505);
 const types = { '.html': 'text/html', '.htm': 'text/html', '.js': 'text/javascript',
   '.mjs': 'text/javascript', '.css': 'text/css', '.json': 'application/json',
-  '.md': 'text/plain; charset=utf-8', '.png': 'image/png', '.jpg': 'image/jpeg', '.gif': 'image/gif',
+  '.md': 'text/plain; charset=utf-8', '.txt': 'text/plain; charset=utf-8',
+  '.png': 'image/png', '.jpg': 'image/jpeg', '.gif': 'image/gif', '.wasm': 'application/wasm',
   '.glb': 'model/gltf-binary' };
-http.createServer(async (req, res) => {
+const server = http.createServer(async (req, res) => {
   try {
     if (!['GET', 'HEAD'].includes(req.method)) { res.writeHead(405).end(); return; }
     const pathname = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
-    const file = path.resolve(root, '.' + (pathname === '/' ? '/index.html' : pathname));
+    const file = path.resolve(root, '.' + (pathname.endsWith('/') ? pathname + 'index.html' : pathname));
     const relative = path.relative(root, file);
     const type = types[path.extname(file).toLowerCase()];
     if (relative.startsWith('..') || path.isAbsolute(relative) || !type || relative.split(/[\\/]/).some(p => p.startsWith('.'))) {
@@ -27,4 +30,5 @@ http.createServer(async (req, res) => {
     const status = error.code === 'ENOENT' || error.code === 'EISDIR' ? 404 : 400;
     res.writeHead(status).end(status === 404 ? 'Not found' : 'Bad request');
   }
-}).listen(port, '127.0.0.1', () => console.log(`U-505 preview: http://127.0.0.1:${port}/`));
+});
+server.listen(port, '127.0.0.1', () => console.log(`U-505 preview: http://127.0.0.1:${server.address().port}/`));

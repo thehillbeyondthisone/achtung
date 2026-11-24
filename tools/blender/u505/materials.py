@@ -83,11 +83,12 @@ class NB:
             m.inputs['Distortion'].default_value = dist
         return m.outputs['Fac']
 
-    def mapping(self, vec, scale=(1, 1, 1), loc=(0, 0, 0)):
+    def mapping(self, vec, scale=(1, 1, 1), loc=(0, 0, 0), rot=(0, 0, 0)):
         m = self.n('ShaderNodeMapping')
         self._feed(m.inputs['Vector'], vec)
         m.inputs['Scale'].default_value = scale
         m.inputs['Location'].default_value = loc
+        m.inputs['Rotation'].default_value = rot
         return m.outputs['Vector']
 
     def principled(self, out_node=True):
@@ -261,16 +262,19 @@ def mat_gunmetal():
     return m
 
 
-def mat_deck_wood():
-    m, B = fresh('M_DeckWood')
+def mat_deck_wood(across=False):
+    m, B = fresh('M_GratingWood' if across else 'M_DeckWood')
     tc = B.n('ShaderNodeTexCoord'); obj = tc.outputs['Object']
+    if across:
+        # Bridge and Wintergarten slats run athwartships.
+        obj = B.mapping(obj, rot=(0, 0, math.pi / 2))
     sep = B.n('ShaderNodeSeparateXYZ'); B.link(obj, sep.inputs[0])
     X, Y, Z = sep.outputs[0], sep.outputs[1], sep.outputs[2]
     # per-plank id from floor(x / pitch), floor(y / segment)
-    px = B.math('FLOOR', B.math('ADD', B.math('DIVIDE', X, 0.133), 0.5))
-    py = B.math('FLOOR', B.math('DIVIDE', Y, 1.47))
+    px = B.math('FLOOR', B.math('ADD', B.math('DIVIDE', X, 0.105 if across else 0.133), 0.5))
+    py = 0 if across else B.math('FLOOR', B.math('DIVIDE', Y, 1.47))
     comb = B.n('ShaderNodeCombineXYZ')
-    B.link(px, comb.inputs[0]); B.link(py, comb.inputs[1])
+    B.link(px, comb.inputs[0]); B._feed(comb.inputs[1], py)
     wn = B.n('ShaderNodeTexWhiteNoise', noise_dimensions='3D')
     B.link(comb.outputs[0], wn.inputs['Vector'])
     rnd = wn.outputs['Value']
@@ -353,6 +357,7 @@ def build_materials():
     mat_hull_paint()
     mat_gunmetal()
     mat_deck_wood()
+    mat_deck_wood(across=True)
     mat_bronze()
     mat_netting()
     mat_galv()

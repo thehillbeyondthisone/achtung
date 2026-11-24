@@ -1,0 +1,405 @@
+{
+  "asset": "Atlantic Explorer",
+  "coordinate_system": {
+    "source": "Blender Z-up, +Y pilot-forward",
+    "gltf": "metres, Y-up, -Z pilot-forward"
+  },
+  "bounds_blender": {
+    "min": [
+      -1.61948,
+      -4.05559,
+      -1.48775
+    ],
+    "max": [
+      1.61951,
+      4.05781,
+      1.78854
+    ],
+    "dimensions": [
+      3.23899,
+      8.1134,
+      3.2763
+    ]
+  },
+  "render": {
+    "mesh_nodes": 20,
+    "triangles": 120380,
+    "anchors": [
+      "XR_ORIGIN",
+      "XR_HEAD_PILOT",
+      "XR_HANDS_PILOT",
+      "XR_HEAD_PASSENGER_PORT",
+      "XR_HEAD_PASSENGER_STARBOARD",
+      "ANCHOR_VIEWPORT_PILOT",
+      "ANCHOR_VIEWPORT_PASSENGER",
+      "ANCHOR_PRESSURE_HULL",
+      "ANCHOR_BATTERY",
+      "ANCHOR_LIFE_SUPPORT",
+      "ANCHOR_AUDIO_HULL",
+      "ANCHOR_LEAK_PILOT",
+      "ANCHOR_LEAK_PASSENGER"
+    ],
+    "failure_meshes": [
+      "Exterior_Details",
+      "Lights_Cabin",
+      "Lights_PassengerEnd",
+      "Lights_PilotEnd",
+      "Thruster_PassengerEnd_Port_Horizontal",
+      "Thruster_PassengerEnd_Port_Vertical",
+      "Thruster_PassengerEnd_Starboard_Horizontal",
+      "Thruster_PassengerEnd_Starboard_Vertical",
+      "Thruster_PilotEnd_Port_Horizontal",
+      "Thruster_PilotEnd_Port_Vertical",
+      "Thruster_PilotEnd_Starboard_Horizontal",
+      "Thruster_PilotEnd_Starboard_Vertical",
+      "Viewport_Passenger",
+      "Viewport_Pilot"
+    ]
+  },
+  "collision": {
+    "mesh_nodes": 7,
+    "nodes": [
+      "COL_ExteriorHull",
+      "COL_CabinFloor",
+      "COL_CabinCeiling",
+      "COL_CabinPort",
+      "COL_CabinStarboard",
+      "COL_CabinPilotEnd",
+      "COL_CabinPassengerEnd"
+    ]
+  },
+  "textures": [
+    {
+      "name": "innerhullcolour.png",
+      "source_size": [
+        2048,
+        2048
+      ],
+      "vr_size": [
+        2048,
+        2048
+      ]
+    },
+    {
+      "name": "innerhullmetallic.png",
+      "source_size": [
+        1024,
+        1024
+      ],
+      "vr_size": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "name": "innerhullnormal.png",
+      "source_size": [
+        2048,
+        2048
+      ],
+      "vr_size": [
+        2048,
+        2048
+      ]
+    },
+    {
+      "name": "innerhullroughness.png",
+      "source_size": [
+        1024,
+        1024
+      ],
+      "vr_size": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "name": "interiorcolour.png",
+      "source_size": [
+        4096,
+        4096
+      ],
+      "vr_size": [
+        2048,
+        2048
+      ]
+    },
+    {
+      "name": "interiormetallic.png",
+      "source_size": [
+        1024,
+        1024
+      ],
+      "vr_size": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "name": "interiornormal.png",
+      "source_size": [
+        1024,
+        1024
+      ],
+      "vr_size": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "name": "interiorroughness.png",
+      "source_size": [
+        1024,
+        1024
+      ],
+      "vr_size": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "name": "lightscolour.png",
+      "source_size": [
+        256,
+        256
+      ],
+      "vr_size": [
+        256,
+        256
+      ]
+    },
+    {
+      "name": "lightsemission.png",
+      "source_size": [
+        256,
+        256
+      ],
+      "vr_size": [
+        256,
+        256
+      ]
+    },
+    {
+      "name": "lowerhullcolour.png",
+      "source_size": [
+        2048,
+        2048
+      ],
+      "vr_size": [
+        2048,
+        2048
+      ]
+    },
+    {
+      "name": "lowerhullmetallic.png",
+      "source_size": [
+        1024,
+        1024
+      ],
+      "vr_size": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "name": "lowerhullnormal.png",
+      "source_size": [
+        1024,
+        1024
+      ],
+      "vr_size": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "name": "lowerhullroughness.png",
+      "source_size": [
+        1024,
+        1024
+      ],
+      "vr_size": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "name": "outsidedetails01colour.png",
+      "source_size": [
+        2048,
+        2048
+      ],
+      "vr_size": [
+        2048,
+        2048
+      ]
+    },
+    {
+      "name": "outsidedetails01metallic.png",
+      "source_size": [
+        1024,
+        1024
+      ],
+      "vr_size": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "name": "outsidedetails01normal.png",
+      "source_size": [
+        1024,
+        1024
+      ],
+      "vr_size": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "name": "outsidedetails01roughness.png",
+      "source_size": [
+        1024,
+        1024
+      ],
+      "vr_size": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "name": "outsidedetails02colour.png",
+      "source_size": [
+        2048,
+        2048
+      ],
+      "vr_size": [
+        2048,
+        2048
+      ]
+    },
+    {
+      "name": "outsidedetails02metallic.png",
+      "source_size": [
+        1024,
+        1024
+      ],
+      "vr_size": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "name": "outsidedetails02normal.png",
+      "source_size": [
+        1024,
+        1024
+      ],
+      "vr_size": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "name": "outsidedetails02roughness.png",
+      "source_size": [
+        1024,
+        1024
+      ],
+      "vr_size": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "name": "transparentitemsalpha.png",
+      "source_size": [
+        1024,
+        1024
+      ],
+      "vr_size": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "name": "transparentitemscolour.png",
+      "source_size": [
+        1024,
+        1024
+      ],
+      "vr_size": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "name": "transparentitemsroughness.png",
+      "source_size": [
+        1024,
+        1024
+      ],
+      "vr_size": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "name": "upperhullcolour.png",
+      "source_size": [
+        4096,
+        4096
+      ],
+      "vr_size": [
+        2048,
+        2048
+      ]
+    },
+    {
+      "name": "upperhullmetallic.png",
+      "source_size": [
+        1024,
+        1024
+      ],
+      "vr_size": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "name": "upperhullnormal.png",
+      "source_size": [
+        1024,
+        1024
+      ],
+      "vr_size": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "name": "upperhullroughness.png",
+      "source_size": [
+        1024,
+        1024
+      ],
+      "vr_size": [
+        1024,
+        1024
+      ]
+    }
+  ],
+  "outputs": [
+    "atlantic_explorer_vr.glb",
+    "atlantic_explorer_vr_draco.glb",
+    "atlantic_explorer_collision.glb",
+    "atlantic_explorer_vr.blend",
+    "atlantic_explorer_vr_preview.png"
+  ],
+  "notes": [
+    "Viewport meshes are separated for runtime intact/crazed/cracked material swaps.",
+    "Eight thrusters are separated and named for independent damage and repair state.",
+    "Collision geometry is exported separately and is hidden in the Blender working file.",
+    "XR head/hand anchors are starting points and require in-headset comfort validation."
+  ]
+}

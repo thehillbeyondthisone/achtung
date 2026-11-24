@@ -643,3 +643,25 @@ The user chose to make the walkable deck match the model. The Act 3 and 7 June d
 - Added the lazy `__u505.audio.output()` analyser probe and `tools/jamcheck.html`. The harness loads the actual build unchanged, uses existing debug hooks for setup, and passes 15 browser checks: live unclipped audio output, drag/release/movement, mute, pause/resume, notebook sound, approach sound, textured model, deck/hatch loop, Act 2/3/7 June loss/retry, checkpoint restoration, normal tow handoff, final restart and title silence.
 - Visually checked the detailed surfacing boat and playable bridge, plus the explicit primitive fallback. The GLB has 10 meshes, 79,434 triangles and two meshes with loaded texture maps. No shader/model loading blocker was observed.
 - `node tools/simcheck.mjs` and `node tools/evidencecheck.mjs` pass. Audio was verified from live WebAudio waveform samples and the browser's audio-playing indicator; subjective speaker/headphone listening, a full real-time playthrough and continuous foreground frame timing were not performed.
+
+## 2026-11-24 — Hatch knock, flotsam and a hand lamp
+
+- **Knock (F at a shut hatch).** The rap lands where the crosshair is on the leaf. It rings where only air is behind the steel on both sides and goes dead where water backs it (the sim's own levels), so knocking down the leaf finds the far room's waterline. Synthesised from two ringing partials and a thud. A word line appears only when the sound did not play. Invented; the codex says so.
+- **Flotsam.** Cork and rag bits ride the modelled flow through each open hatch: one instanced mesh, driven only by `hatchFlowAt`, never writing `sim.s`. Speed is the transfer rate over the area it passes through: about 0.09 m/s far from the motor-room hatch at boarding, 0.45 m/s at the sill.
+- **Hand lamp (L).** Below deck only. It takes the last slot of the fixed four-light pool instead of adding a light, so shader programs do not change when it is switched or at hatch crossings.
+- **Codex:** three invented entries (29 total). The lamp entry cites Lange (Enclosure A8: light and electrical machinery went off) and 2G-9C (emergency lighting cells; flashlight dry cells).
+- **Verified:** simcheck, evidencecheck, menucheck (22/22) and releasecheck pass. In the browser, programs stay at 38 (37 + flotsam) and peak draw calls at ~345 on bow-to-stern walks, lamp on or off. Knock patterns for dry, half and flooded far rooms; real F and L key presses; no console errors. The three playtest "done when" checks (blind knock calls, reading flow by eye, a person playing) were not run.
+
+## 2026-11-24 — Menu redesign ("Deep Water")
+
+Rewrote `ui/menus.css` from a light "plotting desk" dossier theme to a dark, atmospheric design. The JS (`ui/menus.js`) was not changed; every selector, ID, data attribute and class name was preserved.
+
+- **Palette.** Dark blue-grays (`--fm-paper: #0c1419`, `--fm-sheet: #131d24`) with warm off-white text (`--fm-ink: #e0dbd0`). Red accent kept at `--fm-red: #c43c2d`. Not a glowing sonar look — no cyan, no green scanlines.
+- **Typography.** Bahnschrift (Windows) / DIN Alternate (Mac) condensed sans-serif replaces Impact + Georgia. System font stack only; no CDN fonts (releasecheck blocks external requests).
+- **Splash.** Full-bleed hero image (`u505_hero_atlantic.jpg`) with dark gradient overlays. The card is transparent — the title floats directly over the ocean render.
+- **Main menu.** Radial gradient background, broadside image blends into the dark via a left-to-right gradient mask.
+- **Panels.** Dark backgrounds with subtle `--fm-line` borders and 3px border-radius. No offset box shadows.
+- **Pause overlay.** `backdrop-filter: blur(6px)` instead of a semi-transparent solid.
+- **Glossary flags.** Brightened for dark-background visibility: `.flag-real: #5cb580`, `.flag-simplified: #c9a44e`, `.flag-invented: #d45a4d`.
+- **Responsive.** All media queries preserved. Verified at desktop, mobile (375×812) and landscape phone (844×390).
+- **Verified:** menucheck 22/22, releasecheck 4/4. Visual checks at three viewport sizes; no overflow, no truncation, all screens readable.

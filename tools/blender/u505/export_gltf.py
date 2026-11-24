@@ -27,6 +27,7 @@ WEB = {  # name: (srgb colour, metallic, roughness)
     'X_Paint':     ((0.55, 0.555, 0.55), 0.0, 0.7),
     'X_PaintLow':  ((0.2, 0.205, 0.21), 0.0, 0.6),
     'X_Deck':      ((0.38, 0.36, 0.33), 0.0, 0.85),
+    'X_Grating':   ((0.38, 0.36, 0.33), 0.0, 0.82),
     'X_Void':      ((0.03, 0.03, 0.03), 0.0, 0.95),
     'X_Hole':      ((0.01, 0.01, 0.01), 0.0, 1.0),
     'X_Gun':       ((0.3, 0.3, 0.3), 0.3, 0.5),
@@ -35,7 +36,7 @@ WEB = {  # name: (srgb colour, metallic, roughness)
     'X_Iron':      ((0.25, 0.17, 0.12), 0.4, 0.8),
     'X_Porcelain': ((0.62, 0.55, 0.45), 0.0, 0.2),
 }
-MAP = {'M_HullPaint': 'X_Paint', 'M_HullDark': 'X_PaintLow', 'M_DeckWood': 'X_Deck',
+MAP = {'M_HullPaint': 'X_Paint', 'M_HullDark': 'X_PaintLow', 'M_DeckWood': 'X_Deck', 'M_GratingWood': 'X_Grating',
        'M_DeckVoid': 'X_Void', 'M_Hole': 'X_Hole', 'M_Gunmetal': 'X_Gun', 'M_Galv': 'X_Galv',
        'M_Bronze': 'X_Bronze', 'M_Iron': 'X_Iron', 'M_Porcelain': 'X_Porcelain'}
 
@@ -56,7 +57,9 @@ def _web_mats():
 
 TEX_MATS = {  # textured web material: (baked image name, roughness)
     'X_PaintTex': ('U505_Paint_BaseColor', 0.7),
+    'X_TowerPaintTex': ('U505_TowerPaint_BaseColor', 0.64),
     'X_DeckTex': ('U505_Deck_BaseColor', 0.85),
+    'X_GratingTex': ('U505_Grating_BaseColor', 0.82),
 }
 
 
@@ -107,9 +110,9 @@ def _web_copies(srcs, web, textured, tmp, renamed, copies):
         for on in old:
             wn = MAP.get(on, 'X_Paint')
             if baked and wn in ('X_Paint', 'X_PaintLow'):
-                wn = 'X_PaintTex'
-            elif baked and wn == 'X_Deck' and c.name == 'Deck_Planks':
-                wn = 'X_DeckTex'
+                wn = 'X_TowerPaintTex' if tower_paint_object(nm) else 'X_PaintTex'
+            elif baked and wn in ('X_Deck', 'X_Grating'):
+                wn += 'Tex'
             names.append(wn)
         if baked:
             me.uv_layers.active = me.uv_layers['BakeUV']
@@ -130,7 +133,7 @@ def _web_copies(srcs, web, textured, tmp, renamed, copies):
 
 def export_glb(path, draco=False, textured=False):
     """textured=True uses the baked images (bake_textures.py) on objects that carry the
-    BakeUV layer: paint faces get X_PaintTex, Deck_Planks gets X_DeckTex."""
+    BakeUV layer: the paint, weather deck and tower gratings use their own bakes."""
     root = bpy.data.collections[ROOT]
     web = _web_mats()
     if textured:
@@ -174,13 +177,13 @@ def export_glb(path, draco=False, textured=False):
 
 # ---------------------------------------------------------------------------- game version
 # For index.html: decimated smooth shells, weld beads dropped, meshes merged into one node
-# per material (about a dozen draw calls), a 2048 paint atlas, and metalness capped because
+# per material (about a dozen draw calls), 2048 paint atlases, and metalness capped because
 # the game has no environment map (fully metallic surfaces would render nearly black).
 GAME_SKIP = {'Tower_Netting', 'Casing_Seams'}
 GAME_DECIMATE = {'Hull_Outer': 0.26, 'SaddleTank_S': 0.3, 'SaddleTank_P': 0.3,
                  'Deck_Fittings': 0.45, 'Stern_Gear': 0.55, 'Stern_Propellers': 0.5,
                  'Bow_ShutterRims': 0.4, 'Stern_ShutterRims': 0.4, 'Tower_Railings': 0.6,
-                 'Deck_Rails': 0.6, 'Tower_Fairwater': 0.6, 'Tower_Bulwark': 0.6}
+                 'Deck_Rails': 0.6}
 GAME_METAL_MAX = 0.3
 GAME_ATLAS = 2048
 

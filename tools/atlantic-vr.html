@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>Atlantic Explorer · VR asset inspection</title>
+  <style>
+    :root { color-scheme: dark; font-family: ui-sans-serif, system-ui, sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; overflow: hidden; background: #01070d; color: #dceef5; }
+    canvas { display: block; }
+    #panel {
+      position: fixed; z-index: 2; top: 16px; left: 16px; width: min(390px, calc(100vw - 32px));
+      padding: 14px 16px; border: 1px solid #39627088; border-radius: 12px;
+      background: #05131ddd; box-shadow: 0 12px 40px #0009; backdrop-filter: blur(10px);
+    }
+    h1 { margin: 0 0 5px; font-size: 18px; letter-spacing: .04em; }
+    p { margin: 5px 0; color: #9db5bf; font-size: 13px; line-height: 1.4; }
+    #status { color: #9fe7ff; }
+    .views { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 12px; }
+    button.view {
+      border: 1px solid #4f7f8f; border-radius: 999px; padding: 7px 11px;
+      background: #0d2833; color: #dff7ff; cursor: pointer;
+    }
+    button.view:hover, button.view:focus-visible { background: #174657; outline: none; }
+    #vr-note { margin-top: 10px; font-size: 12px; color: #c2d5dc; }
+    @media (max-width: 620px) { #panel { top: 8px; left: 8px; width: calc(100vw - 16px); } }
+  </style>
+  <script type="importmap">
+  { "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  } }
+  </script>
+</head>
+<body>
+  <section id="panel" aria-live="polite">
+    <h1>Atlantic Explorer · VR inspection</h1>
+    <p id="status">Loading the prepared GLB…</p>
+    <div class="views">
+      <button class="view" data-view="pilot">Pilot seat</button>
+      <button class="view" data-view="passenger">Passenger cabin</button>
+      <button class="view" data-view="exterior">Exterior</button>
+    </div>
+    <p id="vr-note">For VR, use a headset browser and choose Enter VR. The session starts seated at the pilot anchor.</p>
+  </section>
+  <script type="module">
+    import * as THREE from 'three';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { VRButton } from 'three/addons/webxr/VRButton.js';
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x01070d);
+    scene.fog = new THREE.FogExp2(0x03131c, 0.035);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.05;
+    renderer.xr.enabled = true;
+    renderer.xr.setReferenceSpaceType('local');
+    document.body.prepend(renderer.domElement);
+    document.body.appendChild(VRButton.createButton(renderer, {
+      optionalFeatures: ['hand-tracking', 'layers']
+    }));
+
+    const rig = new THREE.Group();
+    scene.add(rig);
+    const camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.04, 250);
+    rig.add(camera);
+    camera.position.set(6.2, 3.8, 8.5);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.target.set(0, 0.3, 0);
+    controls.enableDamping = true;
+    controls.minDistance = 0.15;
+    controls.maxDistance = 30;
+
+    scene.add(new THREE.HemisphereLight(0x79b9d5, 0x031018, 0.75));
+    const key = new THREE.DirectionalLight(0xd9f4ff, 2.2);
+    key.position.set(5, 7, 4);
+    scene.add(key);
+    const abyssFill = new THREE.PointLight(0x1b7aa0, 45, 20, 2);
+    abyssFill.position.set(-4, 1, -5);
+    scene.add(abyssFill);
+    const cabinFill = new THREE.PointLight(0xb9e5f2, 5.5, 5, 1.7);
+    cabinFill.position.set(0, 0.9, -0.2);
+    scene.add(cabinFill);
+    const pilotFill = new THREE.PointLight(0x7db9c9, 3.0, 3.5, 1.8);
+    pilotFill.position.set(0, 0.55, -1.65);
+    scene.add(pilotFill);
+
+    const waterShell = new THREE.Mesh(
+      new THREE.SphereGeometry(80, 32, 16),
+      new THREE.MeshBasicMaterial({ color: 0x02131d, side: THREE.BackSide })
+    );
+    scene.add(waterShell);
+
+    const snowGeometry = new THREE.BufferGeometry();
+    const snow = new Float32Array(900 * 3);
+    for (let i = 0; i < snow.length; i += 3) {
+      snow[i] = THREE.MathUtils.randFloatSpread(45);
+      snow[i + 1] = THREE.MathUtils.randFloatSpread(24);
+      snow[i + 2] = THREE.MathUtils.randFloatSpread(45);
+    }
+    snowGeometry.setAttribute('position', new THREE.BufferAttribute(snow, 3));
+    const snowField = new THREE.Points(snowGeometry, new THREE.PointsMaterial({
+      color: 0x9bc3ce, size: 0.018, transparent: true, opacity: 0.42, depthWrite: false
+    }));
+    scene.add(snowField);
+
+    for (let i = 0; i < 2; i++) {
+      const controller = renderer.xr.getController(i);
+      const ray = new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(0, 0, -1)]),
+        new THREE.LineBasicMaterial({ color: 0x8de9ff })
+      );
+      ray.scale.z = 1.4;
+      controller.add(ray);
+      rig.add(controller);
+    }
+
+    const status = document.querySelector('#status');
+    const loader = new GLTFLoader();
+    const draco = new DRACOLoader();
+    draco.setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/libs/draco/gltf/');
+    loader.setDRACOLoader(draco);
+    const useDraco = new URLSearchParams(location.search).has('draco');
+    const assetUrl = useDraco
+      ? '../art/atlantic_explorer/atlantic_explorer_vr_draco.glb'
+      : '../art/atlantic_explorer/atlantic_explorer_vr.glb';
+
+    let vehicle, pilotAnchor, passengerAnchor;
+    globalThis.__atlanticVr = { renderer, scene, camera, controls, loaded: false, vehicle: null };
+    loader.load(assetUrl, gltf => {
+      vehicle = gltf.scene;
+      globalThis.__atlanticVr.vehicle = vehicle;
+      scene.add(vehicle);
+      vehicle.traverse(object => {
+        if (!object.isMesh) return;
+        object.frustumCulled = true;
+        if (object.name.startsWith('Viewport_')) {
+          object.material.depthWrite = false;
+          object.renderOrder = 2;
+        }
+      });
+      globalThis.__atlanticVr.loaded = true;
+      status.textContent = `Ready · ${useDraco ? 'Draco' : 'plain'} GLB · 20 render meshes · 120,380 triangles`;
+      pilotAnchor = vehicle.getObjectByName('XR_HEAD_PILOT');
+      passengerAnchor = vehicle.getObjectByName('XR_HEAD_PASSENGER_PORT');
+      const meshes = [];
+      vehicle.traverse(object => { if (object.isMesh) meshes.push(object); });
+      status.textContent = `Ready · ${meshes.length} render meshes · ${useDraco ? 'Draco' : 'plain'} GLB`;
+      setView('exterior');
+    }, event => {
+      if (event.total) status.textContent = `Loading ${Math.round(event.loaded / event.total * 100)}%…`;
+    }, error => {
+      console.error(error);
+      status.textContent = 'Model load failed. Run this page through tools/serve.mjs.';
+    });
+
+    function anchorPosition(anchor) {
+      const point = new THREE.Vector3();
+      anchor?.getWorldPosition(point);
+      return point;
+    }
+
+    function setView(name) {
+      if (!vehicle || renderer.xr.isPresenting) return;
+      rig.position.set(0, 0, 0);
+      if (name === 'pilot' && pilotAnchor) {
+        const point = anchorPosition(pilotAnchor);
+        camera.position.copy(point);
+        controls.target.copy(point).add(new THREE.Vector3(0, 0, -2));
+      } else if (name === 'passenger' && passengerAnchor) {
+        const point = anchorPosition(passengerAnchor);
+        camera.position.copy(point);
+        controls.target.copy(point).add(new THREE.Vector3(0, 0, 2));
+      } else {
+        camera.position.set(6.2, 3.8, 8.5);
+        controls.target.set(0, 0.3, 0);
+      }
+      controls.update();
+    }
+
+    document.querySelectorAll('[data-view]').forEach(button => {
+      button.addEventListener('click', () => setView(button.dataset.view));
+    });
+
+    renderer.xr.addEventListener('sessionstart', () => {
+      controls.enabled = false;
+      camera.position.set(0, 0, 0);
+      camera.rotation.set(0, 0, 0);
+      rig.position.copy(anchorPosition(pilotAnchor));
+      document.querySelector('#panel').hidden = true;
+    });
+    renderer.xr.addEventListener('sessionend', () => {
+      rig.position.set(0, 0, 0);
+      controls.enabled = true;
+      document.querySelector('#panel').hidden = false;
+      setView('exterior');
+    });
+
+    addEventListener('resize', () => {
+      camera.aspect = innerWidth / innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(innerWidth, innerHeight);
+    });
+
+    const clock = new THREE.Clock();
+    renderer.setAnimationLoop(() => {
+      const t = clock.getElapsedTime();
+      snowField.rotation.y = t * 0.006;
+      snowField.position.y = Math.sin(t * 0.12) * 0.3;
+      if (!renderer.xr.isPresenting) controls.update();
+      renderer.render(scene, camera);
+    });
+  </script>
+</body>
+</html>

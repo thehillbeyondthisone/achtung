@@ -1,51 +1,33 @@
-# Handover — the walkable deck matches the real boat (2026-11-17)
+# Handover
 
-For the game itself, `docs/HANDOFF.md` is the current handoff. `HISTORY.md` is the dated log. Git: public repo https://github.com/thehillbeyondthisone/achtung (`main`); git lives in GitHub Desktop's bundled copy (see project-truths.md). Other sessions edit `index.html` and HISTORY.md here too.
+## 2026-11-24 — Menu redesign ("Deep Water")
+For the game overall, `docs/HANDOFF.md` is the current handoff and `HISTORY.md` the dated log. Other sessions also edit `index.html` here, and the tree already had other uncommitted work before this session.
 
-## What changed this session
-- **Cutscenes.** The detailed U-505 (`art/u505_game.glb`, 989 KB, 79k triangles, 10 meshes) shows in the Act 1 surfacing scene and the 14:23 tow (`loadBoatArt` / `setBoatArt` / `placeBoatArt` in the exterior block). The import map adds `three/addons/`.
-- **Deck.**
-  - The Act 3 and 7 June deck now shows the model too, and walks on its real surfaces.
-  - `deckLayout` (top of the exterior block) ports the model's deck and tower geometry and replaces the old `deckY`, `bridgeY`, `stairs`, `deckProfile`, `deckFloor`, `casingWidth` and `deckHalf`.
-  - There are three levels (deck, `low`, `up`), with obstacle collision; `player.deckLevel` holds the current one.
-  - The platforms are joined by walk-on ladders. Deck ↔ tower climbs are E actions (`deckLayout.nearClimb`, `exterior.climbLadder`, prompt in `findTarget`) that refuse a landing under water. Ramps were tried and failed on the narrow walkway.
-  - Player spawn is on the bridge beside the hatch at x −0.2, side 0.7.
-  - The camera's near plane is 0.08 m on deck and 0.3 m elsewhere.
-- **Model changes in `tools/blender/u505`:**
-  - the hatch is at x −0.9 (`HATCH_Y`);
-  - ladders join the lower and upper platforms (`LADDER_X`);
-  - side ladders run from the upper platform to the deck walkway at x −2.5 (`SIDE_LADDER_Y`). This is a gameplay fitting: at the game's 21–23° stern-down trims the aft rungs land in the sea;
-  - forward rungs run up the fairwater and over the bulwark at x 2.6 (`FWD_RUNG_Y`). This is also a gameplay fitting: on 7 June it keeps the route from the forward deck back to the hatch open until 42 minutes (she founders at 28 and is lost at 45);
-  - the railings have gaps at all the ladders and rungs;
-  - the canisters are aft of the tower.
-  - All the GLBs were re-exported.
-- `?boatart=0` (or a missing GLB) uses the primitives, lifted on deck. The walking is unchanged.
+### What changed (`ui/menus.css`; nothing committed)
+- **Complete CSS rewrite** of the menu system from a light "plotting desk" dossier look to a dark atmospheric theme. `ui/menus.js` was not touched — the redesign is CSS-only, preserving every selector, ID, data attribute and class name.
+- **Palette:** dark blue-grays (`--fm-paper: #0c1419`, `--fm-sheet: #131d24`), warm off-white text (`--fm-ink: #e0dbd0`), red accent `--fm-red: #c43c2d`.
+- **Typography:** Bahnschrift (Windows) / DIN Alternate (Mac) system font stack. No CDN fonts.
+- **Splash:** full-bleed hero image with dark gradients, transparent card.
+- **Main menu:** radial gradient background, broadside image fades into the dark.
+- **Panels:** dark backgrounds, subtle borders, 3px radius. No box shadows.
+- **Pause:** `backdrop-filter: blur(6px)`.
+- **Glossary flags:** brightened for dark backgrounds.
+- **All responsive breakpoints preserved.**
 
-## What was tested
-- `deckLayout` matches Blender's `deck_z` and `w` within 0.5 mm at nine stations.
-- **Routes:** a breadth-first search from the spawn reaches every intended area and none of the blocked ones.
-  - In the real Act 3 and 7 June poses with the wash rule, the reachable deck runs from x −3.8 (Act 3) or −3.4 (7 June) to the bow.
-  - The current route proof is the prompt-driven E-climb route and the 7 June and Act 3 time series. Earlier walk-only route checks used walk-on ramps that no longer exist.
-  - All 12 climb landings (6 climbs, foot and top) are walkable, and each climb leads back.
-  - The real F / E / F climb-out loop works.
-- **In the browser on 8507:**
-  - the views from the bridge, the walkway beside the tower and the lower platform;
-  - the 7 June wash (aft deck under water);
-  - the fallback;
-  - shader programs steady at 31.
-- `simcheck` and `evidencecheck` pass.
-- **E-climbs:** a scripted route through `use()` and the prompts went bridge → deck → bridge → below in the Act 3 pose. The aft rungs refuse when flooded.
-- **Not tested:**
-  - a hands-on keyboard and mouse walk, which is tight between the hatch and the bulwark's aft opening and beside the tower (about 0.25 m clearance);
-  - a real-time playthrough.
-- **Known:** the ladder stringers aren't collision obstacles, and the forward rungs stand about 0.47 m off the fairwater.
+### What was tested
+- menucheck 22/22, releasecheck 4/4 pass.
+- Visual checks at desktop, mobile (375×812) and landscape phone (844×390): splash, main menu, settings (all 4 tabs including Accessibility), chapters, briefing, credits all verified.
+- Pause overlay verified over live 3D scene — `backdrop-filter: blur(6px)` reads well on deck.
+- No `--fm-` variable consumers outside `ui/menus.css`; no Impact/Georgia font references in `index.html`.
+- No overflow, no truncation, no external resource requests.
 
-## Open issues
-- **Gameplay shift.** At 12:40 (21° stern-down), the point where the sea crosses the deck moves about 3 m aft, to beside the tower's aft fairing. The aft deck is still awash on 7 June and in Act 3.
-- **Stale renders.** The Cycles renders in `docs/visuals/blender/` don't show the new ladders, the moved hatch or the moved canisters. Re-shoot with `shoot()` if needed.
-- **Stale preview server.** The 8505 server predates the `.glb` type and falls back silently; restart it.
-- **Public preview.** It must serve `art/u505_game.glb` next to `index.html`.
-- **Not committed.** Nothing from this session is committed.
+### Not tested / open
+- `#intro`, `#banner`, `#glossary` and `#replay` overlays were styled in CSS but not visually verified during gameplay.
+- In landscape (844×390), the Accessibility tab label clips behind the footer — functional (clickable) but cosmetically tight; likely pre-existing layout.
+- Oil sheen (on the vision page) is not built. The chalk survey was not part of this request.
+- The hand lamp does little on bare-metal deck plates (they barely respond to spot lights); fine on machinery, racks and deckhead.
+- Nothing committed.
+- Older open items still stand: the 12:40 sea-crossing shift on deck, stale Cycles renders in `docs/visuals/blender/`, hands-on play-through for knock/lamp tuning.
 
-## Next step
-- A hands-on walk of the deck with keyboard and mouse to judge the narrow spots. Then consider widening the hatch-to-bulwark gap or the tower walkway if they feel fiddly.
+### Next step
+- Commit the menu redesign (and possibly the earlier hand lamp / knock / flotsam work). A hands-on play-through remains the main gameplay gap.

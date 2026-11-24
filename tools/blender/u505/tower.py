@@ -14,6 +14,7 @@ TW = dict(
 
 
 HATCH_Y = -0.9      # upper conning-tower hatch, matching the game's hull.hatch.x_m
+HATCH_RADIUS = 0.301
 LADDER_X = 0.78     # lower -> upper platform ladders, each side
 RUNG_Y = -5.6       # deck -> lower platform rungs on the aft fairing sides
 # Gameplay fitting, not from the photographs: a ladder hung off each side of the upper platform down
@@ -147,6 +148,12 @@ def railing(bm_pipe, bm_net, path, z0, height=1.0, spacing=0.55, r=0.021, mid=Tr
         p = at(total * k / (nst - 1))
         add_cyl(bm_pipe, (p.x, p.y, z0), (p.x, p.y, z0 + height), r, seg=8)
         add_cyl(bm_pipe, (p.x, p.y, z0), (p.x, p.y, z0 + 0.03), r * 2.2, seg=8)
+        for dx, dy in ((r, r), (-r, -r)):
+            add_cyl(bm_pipe, (p.x + dx, p.y + dy, z0 + 0.028),
+                    (p.x + dx, p.y + dy, z0 + 0.037), 0.009, seg=6)
+        if mid:
+            z = z0 + height * 0.5
+            add_cyl(bm_pipe, (p.x, p.y, z - 0.02), (p.x, p.y, z + 0.02), r * 1.28, seg=8)
     top = [(p[0], p[1], z0 + height) for p in path]
     add_tube_path(bm_pipe, top, r * 1.15, seg=8)
     if mid:
@@ -173,6 +180,121 @@ def add_hole(bm, center, normal, up, w, h, mat_index=0, depth=0.012, round_=0.5,
     ring = [bm.verts.new(c + n * depth + r * px + u * py) for px, py in pts]
     f = bm.faces.new(ring)
     f.material_index = mat_index
+
+
+def tower_ring(bm, x, y, profile, mat_index=0, seg=28):
+    """Turn a closed (radius, height) section around a vertical axis."""
+    directions = [(math.cos(2 * math.pi * k / seg), math.sin(2 * math.pi * k / seg)) for k in range(seg)]
+    rings = [[(x + r * a, y + r * b, z) for a, b in directions] for r, z in profile]
+    verts = add_loft_bm(bm, rings, mat_index=mat_index)
+    for k in range(seg):
+        j = (k + 1) % seg
+        face = bm.faces.new((verts[-1][k], verts[-1][j], verts[0][j], verts[0][k]))
+        face.material_index = mat_index
+
+
+def add_bridge_hatch(bm, floor):
+    """Open coaming and lid, with a recessed dark throat above the fairwater cap."""
+    y = HATCH_Y
+    tower_ring(bm, 0, y, [(0.36, floor - 0.02), (0.36, floor + 0.13),
+                           (0.352, floor + 0.15), (0.317, floor + 0.15),
+                           (HATCH_RADIUS, floor + 0.128), (HATCH_RADIUS, floor - 0.047)])
+    tower_ring(bm, 0, y, [(0.352, floor + 0.15), (0.35, floor + 0.16),
+                           (0.32, floor + 0.16), (0.317, floor + 0.15)], mat_index=1)
+    tower_ring(bm, 0, y, [(HATCH_RADIUS, floor + 0.097), (HATCH_RADIUS, floor + 0.118),
+                           (0.292, floor + 0.118), (0.292, floor + 0.097)], mat_index=4)
+    add_cyl(bm, (0, y, floor - 0.059), (0, y, floor - 0.043), 0.302, seg=36, mat_index=2)
+    # Show the top rung and rounded sides of the ladder beneath the coaming.
+    for x in (-0.156, 0.156):
+        add_tube_path(bm, [(x, y + 0.234, floor - 0.04), (x, y + 0.234, floor + 0.045),
+                           (x, y + 0.216, floor + 0.085)], 0.016, seg=8)
+    add_cyl(bm, (-0.155, y + 0.23, floor + 0.018), (0.155, y + 0.23, floor + 0.018),
+            0.016, seg=8, mat_index=1)
+    # Hinge cheeks, cross pin, and the lid's original retaining stay.
+    for x in (-0.115, 0.115):
+        add_box(bm, (x, y - 0.341, floor + 0.14), (0.068, 0.073, 0.10))
+    add_cyl(bm, (-0.145, y - 0.372, floor + 0.181), (0.145, y - 0.372, floor + 0.181), 0.033, seg=12)
+    for x in (-0.153, 0.153):
+        a, b = x - 0.008, x + 0.008
+        add_cyl(bm, (a, y - 0.372, floor + 0.181), (b, y - 0.372, floor + 0.181), 0.026, seg=8, mat_index=1)
+    add_cyl(bm, (0, y - 0.36, floor + 0.18), (0, y - 0.41, floor + 0.9), 0.04, seg=8)
+
+    # Build the lid flat, then place it at the established angle and offset.
+    existing = set(bm.verts)
+    add_cyl(bm, (0, 0, 0), (0, 0, 0.081), 0.37, seg=28)
+    add_cyl(bm, (0, 0, 0.08), (0, 0, 0.106), 0.335, r1=0.235, seg=28)
+    tower_ring(bm, 0, 0, [(0.345, -0.014), (0.345, 0.003),
+                           (0.322, 0.003), (0.322, -0.014)], mat_index=4)
+    add_box(bm, (0, 0, 0.10), (0.12, 0.50, 0.05))
+    add_box(bm, (0, 0, -0.019), (0.105, 0.43, 0.03))
+    for x in (-0.115, 0.115):
+        add_box(bm, (x, -0.337, -0.01), (0.058, 0.13, 0.045))
+    add_cyl(bm, (0, 0, -0.063), (0, 0, -0.014), 0.044, seg=12, mat_index=1)
+    wheel = [(0.115 * math.cos(k * math.tau / 24), 0.115 * math.sin(k * math.tau / 24), -0.066) for k in range(25)]
+    add_tube_path(bm, wheel, 0.011, seg=7, cap=False)
+    for k in range(4):
+        a = k * math.tau / 4
+        add_cyl(bm, (0, 0, -0.066), (0.115 * math.cos(a), 0.115 * math.sin(a), -0.066), 0.009, seg=6)
+    added = [v for v in bm.verts if v not in existing]
+    bmesh.ops.rotate(bm, verts=added, cent=(0, 0, 0), matrix=Matrix.Rotation(math.radians(80), 3, 'X'))
+    bmesh.ops.translate(bm, verts=added, vec=(0, y - 0.36, floor + 0.57))
+
+
+def add_bridge_details(bm, bulwark, floor, lip):
+    """Interior face of the bulwark and the close-range bridge instrument fittings."""
+    normals = plan_normals(bulwark, closed=False)
+    inset = offset_outline(bulwark, -0.063, closed=False)
+    # Bodies of the ribs sit against the inner wall. Keep the ladder exit clear.
+    for side in (-1, 1):
+        indices = [k for k, (x, _) in enumerate(inset) if x * side > 0]
+        for along in (-0.65, 0.32, 1.19, 2.99, 3.58):
+            k = min(indices, key=lambda i: abs(inset[i][1] - along))
+            x, y = inset[k]
+            nx, ny = normals[k]
+            rot = Matrix.Rotation(math.atan2(ny, nx), 4, 'Z')
+            add_box(bm, (x, y, (floor + lip) / 2), (0.041, 0.063, lip - floor - 0.12), rot=rot)
+            add_box(bm, (x - nx * 0.009, y - ny * 0.009, floor + 0.025), (0.065, 0.096, 0.05), rot=rot)
+            for z in (floor + 0.19, floor + 0.52, lip - 0.18):
+                a = (x - nx * 0.020, y - ny * 0.020, z)
+                b = (x - nx * 0.027, y - ny * 0.027, z)
+                add_cyl(bm, a, b, 0.012, seg=6, mat_index=1)
+    add_tube_path(bm, [(x, y, lip - 0.043) for x, y in inset], 0.009, seg=6, mat_index=1)
+
+    # Repeater compass face, rim, index and pointer.
+    cx, cy, cz = 0.45, 3.1, floor + 1.051
+    add_cyl(bm, (cx, cy, cz - 0.001), (cx, cy, cz + 0.003), 0.112, seg=24, mat_index=2)
+    tower_ring(bm, cx, cy, [(0.123, cz - 0.003), (0.12, cz + 0.015),
+                            (0.108, cz + 0.015), (0.108, cz - 0.003)], mat_index=1)
+    for k in range(16):
+        a = k * math.tau / 16
+        r = 0.086 if k % 4 == 0 else 0.094
+        add_box(bm, (cx + r * math.cos(a), cy + r * math.sin(a), cz + 0.004),
+                (0.026 if k % 4 == 0 else 0.012, 0.0035, 0.003),
+                rot=Matrix.Rotation(a, 4, 'Z'), mat_index=3)
+    add_box(bm, (cx + 0.024, cy, cz + 0.008), (0.095, 0.008, 0.004),
+            rot=Matrix.Rotation(0.38, 4, 'Z'), mat_index=3)
+
+    # The rudder indicator faces aft. Ticks and needle sit above its backing plate.
+    add_box(bm, (-0.75, 2.848, floor + 0.75), (0.148, 0.013, 0.174), mat_index=1)
+    add_box(bm, (-0.75, 2.84, floor + 0.75), (0.124, 0.006, 0.145), mat_index=2)
+    for k in range(-3, 4):
+        a = k * 0.26
+        x = -0.75 + 0.058 * math.sin(a)
+        z = floor + 0.72 + 0.064 * math.cos(a)
+        add_box(bm, (x, 2.835, z), (0.004, 0.004, 0.012),
+                rot=Matrix.Rotation(a, 4, 'Y'), mat_index=3)
+    add_box(bm, (-0.755, 2.834, floor + 0.752), (0.004, 0.004, 0.063),
+            rot=Matrix.Rotation(-0.15, 4, 'Y'), mat_index=3)
+    add_tube_path(bm, [(-0.75, 2.90, floor + 0.64), (-0.75, 2.90, floor + 0.32),
+                       (-0.79, 2.93, floor + 0.25), (-0.87, 2.96, floor + 0.2),
+                       (-0.88, 2.96, floor + 0.01)], 0.009, seg=8, mat_index=4)
+
+    # Signal-lamp bezel and lens, and two fasteners on its foot.
+    add_cyl(bm, (0.9, 1.45, floor + 0.95), (0.9, 1.439, floor + 0.95), 0.095, seg=20, mat_index=1)
+    add_cyl(bm, (0.9, 1.438, floor + 0.95), (0.9, 1.433, floor + 0.95), 0.073, seg=20, mat_index=3)
+    add_cyl(bm, (0.9, 1.5, floor - 0.005), (0.9, 1.5, floor + 0.022), 0.047, seg=12)
+    for y in (1.47, 1.53):
+        add_cyl(bm, (0.9, y, floor + 0.022), (0.9, y, floor + 0.031), 0.009, seg=6, mat_index=1)
 
 
 def build_tower():
@@ -243,7 +365,14 @@ def build_tower():
         xs = [abs(p[0]) for p in inner if abs(p[1] - yy) < 0.12]
         if xs:
             hw = max(xs) - 0.03
-            add_box(bm, (0, yy, lt + 0.035), (2 * hw, 0.07, 0.05))
+            edge = max(0, abs(yy - HATCH_Y) - 0.035)
+            if edge < HATCH_RADIUS:
+                cut = math.sqrt(HATCH_RADIUS ** 2 - edge ** 2)
+                if cut < hw:
+                    for side in (-1, 1):
+                        add_box(bm, (side * (hw + cut) / 2, yy, lt + 0.035), (hw - cut, 0.07, 0.05))
+            else:
+                add_box(bm, (0, yy, lt + 0.035), (2 * hw, 0.07, 0.05))
         yy += 0.105
     # upper platform grating (aft of bridge)
     up = offset_outline(egg(T['body_W'], T['body_yf'], T['body_yb'], T['body_ym'], n=96, ef=1.55, eb=2.4), lo - 0.08)
@@ -263,7 +392,7 @@ def build_tower():
             hw = max(xs) - 0.03
             add_box(bm, (0, yy, pz + 0.085), (2 * hw, 0.07, 0.05))
         yy += 0.105
-    bm_to_obj(bm, 'Tower_Gratings', c, mats=['M_DeckWood'])
+    bm_to_obj(bm, 'Tower_Gratings', c, mats=['M_GratingWood'])
 
     # ---------------------------------------------------------------- railings and netting
     bm_p = bmesh.new(); bm_n = bmesh.new()
@@ -281,6 +410,7 @@ def build_tower():
         zb, ztop = DECK_Z + 0.05, T['bul_top'] + 0.05
         for dy in (-0.18, 0.18):
             add_tube_path(bm_p, [(s * FWD_RUNG_X, FWD_RUNG_Y + dy, zb), (s * FWD_RUNG_X, FWD_RUNG_Y + dy, ztop - 0.02)], 0.02, seg=8)
+            add_box(bm_p, (s * FWD_RUNG_X, FWD_RUNG_Y + dy, zb + 0.012), (0.075, 0.083, 0.024))
             # handhold arching over the bulwark lip
             add_tube_path(bm_p, [(s * FWD_RUNG_X, FWD_RUNG_Y + dy, ztop - 0.02), (s * 1.35, FWD_RUNG_Y + dy, ztop + 0.18),
                                  (s * 1.12, FWD_RUNG_Y + dy, ztop + 0.12), (s * 1.08, FWD_RUNG_Y + dy, ztop - 0.25)], 0.02, seg=8)
@@ -294,6 +424,9 @@ def build_tower():
         for dy in (-0.2, 0.2):
             add_tube_path(bm_p, [(s * SIDE_LADDER_X, SIDE_LADDER_Y + dy, zb),
                                  (s * SIDE_LADDER_X, SIDE_LADDER_Y + dy, zt_ + 0.9)], 0.022, seg=8)
+            add_box(bm_p, (s * SIDE_LADDER_X, SIDE_LADDER_Y + dy, zb + 0.012), (0.075, 0.083, 0.024))
+            add_cyl(bm_p, (s * (SIDE_LADDER_X - 0.08), SIDE_LADDER_Y + dy, zt_ - 0.038),
+                    (s * SIDE_LADDER_X, SIDE_LADDER_Y + dy, zt_ - 0.038), 0.027, seg=8)
         for k in range(1, 8):
             z = lerp(zb, zt_, k / 7)
             add_cyl(bm_p, (s * SIDE_LADDER_X, SIDE_LADDER_Y - 0.2, z), (s * SIDE_LADDER_X, SIDE_LADDER_Y + 0.2, z), 0.018, seg=6)
@@ -309,6 +442,7 @@ def build_tower():
         zb, zt_ = pz + 0.11, lt + 0.06
         for dx in (-0.2, 0.2):
             add_tube_path(bm_p, [(s * LADDER_X + dx, yb, zb), (s * LADDER_X + dx, yt, zt_ + 0.75)], 0.022, seg=8)
+            add_box(bm_p, (s * LADDER_X + dx, yb, zb + 0.012), (0.075, 0.083, 0.024))
         for k in range(1, 5):
             t = k / 5
             add_cyl(bm_p, (s * LADDER_X - 0.2, lerp(yb, yt, t), lerp(zb, zt_, t)),
@@ -318,6 +452,7 @@ def build_tower():
 
     # ---------------------------------------------------------------- bridge equipment
     bm = bmesh.new()
+    details = bmesh.new()
     fz = lt + 0.06
     # periscope standards (sky periscope forward, attack periscope aft), streamlined
     for (py, top, rb, rt) in ((1.55, bt + 0.95, 0.30, 0.17), (0.35, bt + 0.55, 0.26, 0.14)):
@@ -330,6 +465,12 @@ def build_tower():
             rings.append([(rx * math.cos(2 * math.pi * k / 24), py - ry * 0.3 + ry * math.sin(2 * math.pi * k / 24) * (1.0 if math.sin(2 * math.pi * k / 24) > 0 else 0.8), z) for k in range(24)])
         add_loft_bm(bm, rings, closed=True, cap_end=True)
         add_cyl(bm, (0, py, top), (0, py, top + 0.05), rt * 1.25, seg=20)
+        # Low flanges and bolts sit inside the area occupied by each standard.
+        flange = [(x * 1.115, py + (y - py) * 1.115) for x, y, _ in rings[0]]
+        add_plate_outline(details, flange, fz + 0.03, 0.035)
+        for x, y, _ in rings[0][::3]:
+            x, y = x * 1.057, py + (y - py) * 1.057
+            add_cyl(details, (x, y, fz + 0.029), (x, y, fz + 0.043), 0.011, seg=6, mat_index=1)
     # sky periscope raised, with head and lifting collar
     add_cyl(bm, (0, 1.55, bt + 0.95), (0, 1.55, bt + 3.6), 0.095, seg=20)
     add_cyl(bm, (0, 1.55, bt + 2.2), (0, 1.55, bt + 2.26), 0.16, seg=20)
@@ -350,15 +491,6 @@ def build_tower():
     add_tube_path(bm, [(-0.55, 3.2, fz), (-0.55, 3.2, fz + 0.8), (-0.52, 3.35, fz + 0.95)], 0.035, seg=10)
     add_cyl(bm, (-0.52, 3.35, fz + 0.95), (-0.5, 3.45, fz + 1.0), 0.06, r1=0.075, seg=12)
     add_box(bm, (-0.75, 2.9, fz + 0.75), (0.18, 0.1, 0.22))
-    # conning-tower upper hatch (raised coaming, open lid)
-    add_cyl(bm, (0, HATCH_Y, fz - 0.02), (0, HATCH_Y, fz + 0.16), 0.36, seg=28)
-    add_cyl(bm, (0, HATCH_Y - 0.36, fz + 0.18), (0, HATCH_Y - 0.36 - 0.05, fz + 0.9), 0.04, seg=6, cap=True)
-    hb = bmesh.new()
-    add_cyl(hb, (0, 0, 0), (0, 0, 0.08), 0.37, seg=28)
-    add_box(hb, (0, 0, 0.1), (0.12, 0.5, 0.05))
-    bmesh.ops.rotate(hb, verts=hb.verts, cent=(0, 0, 0), matrix=Matrix.Rotation(math.radians(80), 3, 'X'))
-    bmesh.ops.translate(hb, verts=hb.verts, vec=(0, HATCH_Y - 0.36, fz + 0.2 + 0.37))
-    tmp = bpy.data.meshes.new('_tmp'); hb.to_mesh(tmp); hb.free(); bm.from_mesh(tmp); bpy.data.meshes.remove(tmp)
     # retractable rod antenna housing (port side of the bridge)
     add_cyl(bm, (-0.95, 0.8, fz), (-0.95, 0.8, bt + 0.25), 0.07, seg=14)
     add_cyl(bm, (-0.95, 0.8, bt + 0.25), (-0.95, 0.8, bt + 2.3), 0.018, seg=8)
@@ -366,6 +498,10 @@ def build_tower():
     add_cyl(bm, (0.9, 1.5, fz), (0.9, 1.5, fz + 0.9), 0.03, seg=8)
     add_cyl(bm, (0.9, 1.45, fz + 0.95), (0.9, 1.65, fz + 0.95), 0.1, seg=16)
     bm_to_obj(bm, 'Tower_BridgeGear', c, mats=['M_Gunmetal'], smooth=True)
+    add_bridge_hatch(details, fz)
+    add_bridge_details(details, bul, fz, bt)
+    bm_to_obj(details, 'Tower_BridgeDetails', c,
+              mats=['M_Gunmetal', 'M_Galv', 'M_Hole', 'M_Porcelain', 'M_Iron'])
 
     # ---------------------------------------------------------------- side lights, rungs, openings
     bm = bmesh.new()

@@ -14,6 +14,10 @@ from mathutils import Vector, Matrix
 
 ROOT = 'U-505'
 
+def tower_paint_object(name):
+    """Keep the tower's atlas free of the long hull and deck strips."""
+    return name.startswith('Tower_')
+
 # ---------------------------------------------------------------- collections
 
 def get_coll(name, parent=None):

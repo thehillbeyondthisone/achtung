@@ -5,10 +5,11 @@
 #   G['bake_all'](r'<repo>\art\textures')
 # Then export with G['export_glb'](path, draco=True, textured=True).
 #
-# Two images, base colour only (lighting-free DIFFUSE/COLOR bake):
-#   u505_paint_basecolor.jpg  4096 x 4096  every hull-paint object, Smart-UV-unwrapped
-#                                          together into one atlas (about 1.3 cm per texel)
+# Base colour only (lighting-free DIFFUSE/COLOR bake):
+#   u505_paint_basecolor.jpg  4096 x 4096  hull and weather-deck paint
+#   u505_tower_paint_basecolor.jpg 2048 x 2048  tower paint
 #   u505_deck_basecolor.jpg   4096 x 512   Deck_Planks, projected from above along the deck
+#   u505_grating_basecolor.jpg 1024 x 512  Tower_Gratings, with grain running across the deck
 # The paint shader works in object coordinates, so the bake carries the boot-top two-tone,
 # peeling, rust runs, salt and waterline growth regardless of the UV layout. Bump-only
 # detail (weld beads, fine paint texture) is not baked.
@@ -18,7 +19,9 @@ import os
 BAKE_UV = 'BakeUV'
 PAINT_SKIP = {'Casing_Seams'}       # thousands of tiny weld-bead tubes: keep flat colour
 PAINT_IMG = ('U505_Paint_BaseColor', 4096, 4096, 'u505_paint_basecolor.jpg')
+TOWER_PAINT_IMG = ('U505_TowerPaint_BaseColor', 2048, 2048, 'u505_tower_paint_basecolor.jpg')
 DECK_IMG = ('U505_Deck_BaseColor', 4096, 512, 'u505_deck_basecolor.jpg')
+GRATING_IMG = ('U505_Grating_BaseColor', 1024, 512, 'u505_grating_basecolor.jpg')
 
 
 def paint_objects():
@@ -72,6 +75,18 @@ def unwrap_deck(o):
         for li in poly.loop_indices:
             co = me.vertices[me.loops[li].vertex_index].co
             uv.data[li].uv = ((co.y - y0) / (y1 - y0), (co.x + 1.85) / 3.7)
+
+
+def unwrap_grating(o):
+    """Top view, with space between the atlas regions for the two levels."""
+    uv = _uv_layer(o)
+    me = o.data
+    for poly in me.polygons:
+        for li in poly.loop_indices:
+            co = me.vertices[me.loops[li].vertex_index].co
+            upper = co.z > TW['ledge_top'] - 0.1
+            u = (co.y + 4.5) / 9.2 if upper else (co.y + 7.25) / 3.5
+            uv.data[li].uv = (u, (co.x + 1.6) / 7.2 + (0.52 if upper else 0.03))
 
 
 def uv_area(objs):
@@ -141,12 +156,19 @@ def _bake(objs, spec, out_dir, samples=8, margin=16):
 def bake_all(out_dir):
     import time
     t = time.time()
-    paint = paint_objects()
-    unwrap_paint(paint)
-    area = uv_area(paint)
+    all_paint = paint_objects()
+    tower = [o for o in all_paint if tower_paint_object(o.name)]
+    paint = [o for o in all_paint if not tower_paint_object(o.name)]
+    for group in (paint, tower):
+        unwrap_paint(group)
     deck = bpy.data.objects['Deck_Planks']
+    grating = bpy.data.objects['Tower_Gratings']
     unwrap_deck(deck)
+    unwrap_grating(grating)
     p1 = _bake(paint, PAINT_IMG, out_dir)
+    tower_path = _bake(tower, TOWER_PAINT_IMG, out_dir)
     p2 = _bake([deck], DECK_IMG, out_dir)
-    return dict(paint_objects=len(paint), paint_uv_area=round(area, 3), paint=p1, deck=p2,
+    p3 = _bake([grating], GRATING_IMG, out_dir, margin=6)
+    return dict(paint_objects=len(all_paint), paint_uv_area=[round(uv_area(group), 3) for group in (paint, tower)],
+                paint=p1, tower_paint=tower_path, deck=p2, grating=p3,
                 seconds=round(time.time() - t, 1))

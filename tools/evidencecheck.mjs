@@ -26,7 +26,10 @@ for (const group of ['compartments.hull', 'systems.doors', 'systems.drains', 'sc
 }
 assert(assumptions.some(r => r.path.includes('sea_strainer')), 'Mixed strainer data must remain flagged');
 assert(assumptions.some(r => r.path.endsWith('ballast_tanks')), 'Sibling status metadata must be collected');
-assert.equal(data.codex.entries.length, 25);
+assert.equal(new Set(data.codex.entries.map(entry => entry.id)).size, data.codex.entries.length, 'Codex IDs must be unique');
+const crewGestures = data.codex.entries.find(entry => entry.id === 'crew-gestures');
+assert.equal(crewGestures?.flag, 'invented', 'Crew gestures must be identified as reconstructions');
+assert.deepEqual(crewGestures.unlock, ['handoff:enigma', 'handoff:pumps']);
 for (const entry of data.codex.entries) {
   for (const key of entry.sources) assert(data.codex.sources[key], entry.id + ': unknown source ' + key);
   if (entry.flag === 'real') assert(entry.locator, entry.id + ': missing passage locator');
@@ -41,4 +44,4 @@ assert(data.systems.pumps[data.epilogue.awash.pump_type], 'Missing 7 June pump m
 assert.equal(data.charges.charges.length, 2, 'Retain the two representative placeholders');
 assert(data.charges.charges.every(r => r.placeholder && r.status === 'placeholder'));
 assert.equal(data.scenario.power_available, false, 'Own-pump availability remains unresolved');
-console.log(`Evidence checks passed: 25 codex entries, ${assumptions.length} assumption records, local sources and scene metadata.`);
+console.log(`Evidence checks passed: ${data.codex.entries.length} codex entries, ${assumptions.length} assumption records, local sources and scene metadata.`);

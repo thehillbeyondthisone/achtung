@@ -14,6 +14,8 @@ PLANK_W, PLANK_GAP, PLANK_T = 0.105, 0.028, 0.045
 CANISTER_X, CANISTER_Y = 1.2, -7.75
 DECK_Y0, DECK_Y1 = -35.6, 34.6
 MARGIN = 0.15
+DECK_HARDWARE_MATS = ('M_Gunmetal', 'M_Galv', 'M_Iron')
+DECK_DARK_STEEL, DECK_BARE_STEEL, DECK_IRON = range(len(DECK_HARDWARE_MATS))
 
 
 def deck_z(x, y):
@@ -53,10 +55,37 @@ def add_deck_box(bm, x0, x1, y0, y1, t, lift=0.0, mat_index=0):
         bm.faces.new((bot[i], bot[j], top[j], top[i])).material_index = mat_index
 
 
+def deck_fastener(bm, x, y, z, radius=0.021, height=0.012, material=DECK_DARK_STEEL):
+    """A shallow hex head set into the mounting surface."""
+    add_cyl(bm, (x, y, z - 0.004), (x, y, z + height), radius, seg=6,
+            mat_index=material, smooth=False)
+
+
+def deck_hatch_hardware(bm, y, z, outer_radius, slant):
+    # Pin and seam follow the lid angle. Fasteners around the base sit on the flat hatch plate.
+    frame = Matrix.Translation((0, y, z)) @ Matrix.Rotation(math.radians(slant), 4, 'X')
+    pin_y = -(outer_radius + 0.06)
+    for side in (-1, 1):
+        add_cyl(bm, frame @ Vector((side * 0.148, pin_y, 0.185)),
+                frame @ Vector((side * 0.193, pin_y, 0.185)), 0.044, seg=10,
+                mat_index=DECK_BARE_STEEL)
+    rings = []
+    for radius, level in ((outer_radius + 0.006, 0.132), (outer_radius + 0.033, 0.144),
+                          (outer_radius + 0.033, 0.156)):
+        rings.append([frame @ Vector((radius * math.cos(a), radius * math.sin(a), level))
+                      for a in (math.tau * i / 24 for i in range(24))])
+    add_loft_bm(bm, rings, mat_index=DECK_DARK_STEEL)
+    for offset in (-0.62, 0.0, 0.62):
+        plate_z = lerp(deck_z(0.68, y - 0.76), deck_z(0.68, y + 0.76), (offset + 0.76) / 1.52)
+        for x in (-0.60, 0.60):
+            deck_fastener(bm, x, y + offset, plate_z + PLANK_T + 0.008, radius=0.025)
+
+
 def build_deck():
     c = reset_coll('Deck', ROOT)
     ex = tower_excl()
     hatch_zone = [(h[1], 0.78) for h in HATCHES]
+    hardware = bmesh.new()
     bm = bmesh.new()
     pitch = PLANK_W + PLANK_GAP
     n_side = int((1.78 - MARGIN) / pitch)
@@ -116,11 +145,25 @@ def build_deck():
             zo, zi = deck_z(abs(xo), yy), deck_z(abs(xi), yy)
             rings.append([(xi, yy, zi), (xo, yy, zo), (xo, yy, zo + 0.03), (xi, yy, zi + 0.03)])
         add_loft_bm(bm, rings, closed=True, cap_start=True, cap_end=True, smooth=False)
+        spacing = 1.45
+        for station in range(int((DECK_Y1 - DECK_Y0) / spacing)):
+            yy = DECK_Y0 + (station + 0.5) * spacing
+            x = s * (hull_params(yy)['w'] - 0.082)
+            deck_fastener(hardware, x, yy, deck_z(x, yy) + 0.03, radius=0.019, height=0.006)
     yy = DECK_Y0 + 1.0
     while yy < DECK_Y1 - 0.5:
         if ex(yy) < 0 and all(abs(yy - h[1]) > 0.9 for h in HATCHES):
             w = hull_params(yy)['w'] - MARGIN
-            add_deck_box(bm, -w, w, yy - 0.03, yy + 0.03, 0.012, lift=PLANK_T)
+            sections = []
+            for fraction in (-1, -0.5, 0, 0.5, 1):
+                x = w * fraction
+                aft, fwd = yy - 0.03, yy + 0.03
+                za, zf = deck_z(x, aft) + PLANK_T, deck_z(x, fwd) + PLANK_T
+                sections.append([(x, aft, za), (x, fwd, zf), (x, fwd, zf + 0.012), (x, aft, za + 0.012)])
+                if abs(fraction) < 1:
+                    deck_fastener(hardware, x, yy, (za + zf) * 0.5 + 0.012,
+                                  radius=0.019, height=0.006)
+            add_loft_bm(bm, sections, cap_start=True, cap_end=True, smooth=False)
         yy += 3.6
     for (nm, hy, hr, sl) in HATCHES:
         add_deck_box(bm, -0.68, 0.68, hy - 0.76, hy + 0.76, PLANK_T + 0.008)
@@ -131,6 +174,7 @@ def build_deck():
     for (nm, hy, hr, sl) in HATCHES:
         z0 = deck_z(0, hy) + PLANK_T + 0.008
         ro = hr + 0.06
+        deck_hatch_hardware(hardware, hy, z0, ro, sl)
         hb = bmesh.new()
         add_cyl(hb, (0, 0, -0.05), (0, 0, 0.13), ro, seg=40)
         rings = []
@@ -163,9 +207,14 @@ def build_deck():
             x = s * (w - 0.42)
             z = deck_z(abs(x), by) + PLANK_T
             add_box(bm, (x, by, z + 0.015), (0.3, 0.72, 0.03))
+            for dx in (-0.105, 0.105):
+                for dy in (-0.29, 0.29):
+                    deck_fastener(hardware, x + dx, by + dy, z + 0.03)
             for dy in (-0.2, 0.2):
                 add_cyl(bm, (x, by + dy, z), (x, by + dy, z + 0.3), 0.075, seg=16)
                 add_cyl(bm, (x, by + dy, z + 0.3), (x, by + dy, z + 0.34), 0.095, seg=16)
+                add_cyl(hardware, (x, by + dy, z + 0.026), (x, by + dy, z + 0.074),
+                        0.091, seg=12, mat_index=DECK_IRON)
     # capstans: windlass head forward, capstan aft
     for cy in (30.0, -29.6):
         z = deck_z(0, cy) + PLANK_T
@@ -176,6 +225,7 @@ def build_deck():
             a = 2 * math.pi * j / 8
             add_box(bm, (0.215 * math.cos(a), cy + 0.215 * math.sin(a), z + 0.21), (0.05, 0.05, 0.28),
                     rot=Matrix.Rotation(a, 4, 'Z'))
+            deck_fastener(hardware, 0.315 * math.cos(a), cy + 0.315 * math.sin(a), z + 0.06, radius=0.024)
         for j in range(6):
             a = 2 * math.pi * j / 6
             add_cyl(bm, (0.13 * math.cos(a), cy + 0.13 * math.sin(a), z + 0.42), (0.13 * math.cos(a), cy + 0.13 * math.sin(a), z + 0.44), 0.035, seg=8)
@@ -187,7 +237,13 @@ def build_deck():
         add_cyl(bm, (x, y, z), (x, y, z + 1.05), 0.17, seg=24)
         add_cyl(bm, (x, y, z + 1.05), (x, y, z + 1.12), 0.19, seg=24)
         for zz in (0.25, 0.8):
-            add_cyl(bm, (x, y, z + zz), (x, y, z + zz + 0.04), 0.185, seg=24)
+            # Strap and buckle remain inside the existing cap outline.
+            add_cyl(hardware, (x, y, z + zz), (x, y, z + zz + 0.04), 0.185, seg=24,
+                    mat_index=DECK_DARK_STEEL)
+            add_box(hardware, (x, y + 0.170, z + zz + 0.022), (0.082, 0.036, 0.046),
+                    mat_index=DECK_BARE_STEEL)
+        add_cyl(hardware, (x, y, z + 0.001), (x, y, z + 0.044), 0.190, seg=18,
+                mat_index=DECK_IRON)
     bm_to_obj(bm, 'Deck_Fittings', c, mats=['M_HullPaint'], smooth=True)
 
     # guard rails: stanchions with two wire runs, alongside the tower
@@ -203,6 +259,12 @@ def build_deck():
                 z = deck_z(abs(x), yy)
                 add_cyl(bm_r, (x, yy, z), (x, yy, z + 0.9), 0.02, seg=8)
                 add_cyl(bm_r, (x, yy, z), (x, yy, z + 0.06), 0.04, seg=8)
+                add_deck_box(hardware, x - 0.061, x + 0.061, yy - 0.09, yy + 0.09,
+                             0.018, lift=0.03, mat_index=DECK_IRON)
+                for fore_aft in (-0.058, 0.058):
+                    bolt_y = yy + fore_aft
+                    deck_fastener(hardware, x, bolt_y, deck_z(x, bolt_y) + 0.048,
+                                  radius=0.015, height=0.011, material=DECK_BARE_STEEL)
                 tops.append((x, yy, z + 0.9)); mids.append((x, yy, z + 0.48))
             for run in (tops, mids):
                 pts = []
@@ -216,3 +278,4 @@ def build_deck():
                 pts.append(Vector(run[-1]))
                 add_tube_path(bm_r, pts, 0.007, seg=5)
     bm_to_obj(bm_r, 'Deck_Rails', c, mats=['M_Galv'], smooth=True)
+    bm_to_obj(hardware, 'Deck_Hardware', c, mats=DECK_HARDWARE_MATS)

@@ -76,11 +76,142 @@ async function check(name, fn) {
 run.onclick = async () => {
   run.disabled = true; results.replaceChildren();
   // Runs synchronously under this click's user activation, so autoplay remains a real test.
-  frame.contentDocument.querySelector('#board-game')?.click(); dismiss(); game().audio.start();
+  game().menus.main();
+  frame.contentDocument.querySelector('#fleet-menu [data-menu-action="board"]').click();
+  frame.contentDocument.querySelector('#board-game').click();
+  if (game().menus.state.screen === 'confirm') frame.contentDocument.querySelector('#fleet-menu [data-menu-action="confirm"]').click();
+  dismiss(); game().audio.start();
   await check('Boarding audio starts and produces an unclipped signal', async () => {
-    stage('act2'); game().audio.output(); await sleep(1400);
-    const out = game().audio.output(); assert(out.state === 'running' && out.rms > .001 && out.peak < 1, JSON.stringify(out));
+    stage('act2');
+    const { audio } = game();
+    let out = audio.output();
+    for (let i = 0; i < 22 && out.rms <= .001; i++) { await sleep(150); out = audio.output(); }
+    assert(out.state === 'running' && out.rms > .001 && out.peak < 1, JSON.stringify(out));
     assert(game().audio.levels().strainer > 0, 'strainer is silent');
+  });
+  await check('Capping the strainer cuts the jet and leaves pooled water audible', async () => {
+    const u = game(), { sim, player, audio } = u;
+    const strainer = sim.sources.find(source => source.id === 'sea_strainer');
+    const settings = u.menus.settings;
+    try {
+      audio.configure({ ...settings, masterVolume: 100 });
+      Object.assign(player, { comp: strainer.c, x: strainer.x + .8, side: 0 });
+      u.aim(strainer.x, sim.hull.floor_height_m + .3, strainer.side);
+      u.tick(.016);
+      const before = audio.levels();
+      assert(u.target?.type === 'strainer' && before.strainer > .2 && before.strainerImpact > .1, 'strainer jet cue missing');
+      await sleep(450);
+      const samples = [];
+      for (let i = 0; i < 6; i++) { samples.push(audio.output()); await sleep(32); }
+      assert(samples.some(out => out.rms > .01) && samples.every(out => out.peak < .9), JSON.stringify(samples));
+      key('KeyE'); u.tick(.016);
+      const after = audio.levels();
+      assert(audio.cues().counts.strainerCap === 1 && after.strainer === 0 && after.strainerImpact === 0 && after.pool > 0,
+        JSON.stringify({ after, cues: audio.cues() }));
+      u.keys.add('KeyW'); for (let i = 0; i < 20; i++) u.tick(.07); u.keys.clear();
+      assert(audio.cues().counts.step > 0 && audio.cues().counts.wetStep > 0, JSON.stringify(audio.cues()));
+    } finally { audio.configure(settings); stage('act2'); }
+  });
+  await check('Hatch latches muffle the engine room and the diesels wind down separately', () => {
+    const u = game(), { sim, player, audio } = u;
+    try {
+      const k = sim.doors.findIndex(d => sim.comps[d.a].id === 'control');
+      const hatch = sim.doors[k];
+      Object.assign(player, { comp: hatch.a, x: hatch.x + 1.05, side: 0 });
+      u.aim(hatch.x, hatch.zSill + hatch.r, 0); u.tick(.016);
+      const before = audio.levels().diesel;
+      assert(u.target?.type === 'door' && u.target.k === k && sim.s.doorOpen[k], 'open diesel hatch not targeted');
+      key('KeyE'); u.tick(.016);
+      assert(audio.cues().counts.hatchClose === 1 && audio.levels().diesel < before * .45, 'closed hatch did not muffle engines');
+      key('KeyE'); u.tick(.016);
+      assert(audio.cues().counts.hatchOpen === 1 && audio.levels().diesel > before * .95, 'opened hatch did not restore engines');
+
+      const port = sim.fuel[0], lever = sim.valves[port];
+      Object.assign(player, { comp: lever.c, x: lever.x + .8, side: 0 });
+      u.aim(lever.x, lever.z, lever.side); u.tick(.016);
+      const running = audio.levels();
+      assert(u.target?.type === 'valve' && u.target.k === port, 'port stop lever not targeted');
+      key('KeyE'); for (let i = 0; i < 45; i++) u.tick(.1);
+      const stopped = audio.levels();
+      assert(sim.s.valve[port] === 0 && stopped.dieselPort < running.dieselPort * .2 && stopped.dieselStarboard > running.dieselStarboard * .95,
+        JSON.stringify({ running, stopped }));
+      const starboard = sim.fuel[1], secondLever = sim.valves[starboard];
+      u.aim(secondLever.x, secondLever.z, secondLever.side); u.tick(.016);
+      assert(u.target?.type === 'valve' && u.target.k === starboard, 'starboard stop lever not targeted');
+      key('KeyE'); for (let i = 0; i < 58; i++) u.tick(.1);
+      const off = audio.levels();
+      assert(sim.s.valve[starboard] === 0 && off.diesel < stopped.diesel * .05, JSON.stringify({ stopped, off }));
+    } finally { stage('act2'); }
+  });
+  await check('Pump bearing follows the listener and changes with bulkheads and suction', () => {
+    stage('act3');
+    const u = game(), { sim, player, audio } = u;
+    try {
+      const intake = u.act.intakes.find(({ c }) => sim.s.V[c] * sim.RHO >= 1);
+      assert(intake && u.act.takePump(), 'wet intake or portable pump missing');
+      Object.assign(player, { comp: intake.stage, x: intake.x + .75, side: 0 });
+      const signFace = sim.comps[intake.stage].id === 'diesel' ? .439 : Math.abs(intake.side) + .114;
+      u.aim(intake.x, sim.hull.floor_height_m + 1.42, Math.sign(intake.side) * signFace);
+      assert(u.target?.type === 'salvageIntake' && u.target.c === intake.c, 'intake not targeted');
+      assert(frame.contentDocument.querySelector('#prompt').textContent.includes('[E] Connect pump'), 'wet intake has no E prompt');
+      key('KeyE'); u.tick(.016);
+      const wet = audio.levels();
+      assert(audio.cues().counts.pumpConnect === 1 && wet.pumpWet > 0 && wet.pumpSuction > 0 && wet.pumpAir === 0,
+        JSON.stringify({ wet, cues: audio.cues() }));
+      assert(frame.contentDocument.querySelector('#prompt').textContent.includes('Drawing water'), 'wet pump has no text status');
+      player.yaw = 0; u.tick(.016);
+      const forward = audio.pans().pumpWet;
+      player.yaw = Math.PI; u.tick(.016);
+      const aft = audio.pans().pumpWet;
+      assert(Math.abs(forward) > .15 && Math.abs(forward + aft) < .03, JSON.stringify({ forward, aft }));
+      const k = sim.doors.findIndex(door => door.b === intake.stage), hatch = sim.doors[k];
+      Object.assign(player, { comp: hatch.a, x: hatch.x + .65, side: 0 });
+      sim.s.doorOpen[k] = true; u.tick(.016);
+      const open = audio.levels().pumpWet;
+      sim.s.doorOpen[k] = false; u.tick(.016);
+      const shut = audio.levels().pumpWet;
+      assert(shut > 0 && shut < open * .45, JSON.stringify({ open, shut }));
+      sim.s.V[intake.c] = 0; u.tick(.016);
+      const dry = audio.levels();
+      assert(dry.pumpAir > 0 && dry.pumpWet === 0 && dry.pumpSuction === 0, JSON.stringify(dry));
+      Object.assign(player, { comp: intake.stage, x: intake.x + .75, side: 0 });
+      u.aim(intake.x, sim.hull.floor_height_m + 1.42, Math.sign(intake.side) * signFace);
+      u.tick(.016);
+      assert(frame.contentDocument.querySelector('#prompt').textContent.includes('Drawing air'), 'dry pump has no text status');
+    } finally { stage('act2'); }
+    assert(audio.cues().activeVoices === 0 && Object.keys(audio.cues().counts).length === 0, 'restart kept old audio cues');
+  });
+  await check('A steep-trim wet stride has a distinct splash over continuous slosh', () => {
+    stage('awash');
+    const u = game(), { sim, player, audio } = u;
+    try {
+      const comp = sim.comps.findIndex(room => room.id === 'diesel'), room = sim.comps[comp], x = room.xA + 4.1;
+      Object.assign(player, { comp, x, side: 0, yaw: Math.PI });
+      u.tick(.016);
+      const depth = sim.levelAt(comp, x, 0) - sim.hull.floor_height_m;
+      assert(sim.s.trim > .3 && depth > .7, JSON.stringify({ trim: sim.s.trim, depth }));
+      u.keys.add('KeyW'); for (let i = 0; i < 23; i++) u.tick(.07); u.keys.clear();
+      const { counts, last } = audio.cues(), { slosh } = audio.levels();
+      assert(x - player.x > .64 && counts.wetStep > 0 && last.name === 'wetStep' && last.level > slosh * 2 && slosh > 0 &&
+        audio.reflections().maskMs === 0, JSON.stringify({ counts, last, slosh }));
+    } finally { stage('act2'); }
+  });
+  await check('Short reflections follow compartment and facing without leaking outdoors', () => {
+    const u = game(), { player, audio } = u;
+    try {
+      u.view('control'); player.yaw = 0; u.tick(.016);
+      const forward = audio.reflections();
+      player.yaw = Math.PI; u.tick(.016);
+      const aft = audio.reflections();
+      assert(forward.room === 'control' && forward.level > 0 && forward.taps.length === 4 &&
+        forward.taps[0].pan < -.5 && aft.taps[0].pan > .5, JSON.stringify({ forward, aft }));
+      u.view('diesel'); u.tick(.016);
+      const diesel = audio.reflections();
+      assert(diesel.room === 'diesel' && diesel.taps[3].ms > aft.taps[3].ms && diesel.taps.every(tap => tap.ms > 5 && tap.ms < 38),
+        JSON.stringify(diesel));
+      stage('act1');
+      assert(audio.reflections().level === 0 && audio.reflections().maskMs === 0 && audio.levels().sea > 0, 'interior return leaked outdoors');
+    } finally { stage('act2'); }
   });
   await check('Refused mouse capture enables drag look and release stops it', async () => {
     const win = frame.contentWindow, u = game(), canvas = frame.contentDocument.querySelector('#view');
@@ -120,10 +251,37 @@ run.onclick = async () => {
     const b = boatInfo(); assert(b.loaded && b.meshes > 0 && b.triangles > 50000 && b.textures > 0, JSON.stringify(b));
     stage('surfacing'); assert(boatInfo().visible, 'model is hidden in surfacing');
   });
+  await check('Blender interior loads with valid surface geometry', async () => {
+    const u = game(), expected = ['control', 'diesel', 'motor', 'aft_torpedo'];
+    for (let i = 0; i < 100 && u.interior.loaded().length < expected.length; i++) await sleep(100);
+    const loaded = u.interior.loaded();
+    assert(expected.every(id => loaded.includes(id)), `Loaded rooms: ${loaded.join(', ')}`);
+    stage('act2'); u.view('diesel');
+    const audit = u.auditVisualGeometry();
+    assert(!audit.issues.length, audit.issues.join(', '));
+  });
   await check('Playable deck uses the detailed model and E returns below', () => {
     deck(); const u = game(), model = u.exterior.scene.getObjectByName('U-505 model');
     assert(model.visible && Math.abs(model.position.y + 2.225) < .001 && u.exterior.camera.near === .08, 'deck model alignment failed');
     u.use(); u.tick(.01); assert(!u.story.onDeck && u.exterior.camera.near === .3, 'E did not return below');
+  });
+  await check('Boarding ladder reaches daylight before the optional salvage wait', () => {
+    stage('act2');
+    const u = game(), hull = u.data.compartments.hull;
+    const control = u.sim.comps.findIndex(room => room.id === 'control');
+    Object.assign(u.player, { comp: control, x: hull.hatch.x_m + .5, side: 0 });
+    u.aim(hull.hatch.x_m, hull.floor_height_m + 1.4, 0);
+    assert(u.target?.type === 'ladder', 'control-room ladder not targeted');
+    key('KeyF');
+    assert(u.story.onDeck && !u.waiting, 'climbing out began a wait');
+    const before = u.sim.s.t;
+    key('KeyF'); u.tick(.1);
+    assert(u.waiting && u.sim.s.t - before > 10, 'on-deck wait did not fast-forward boarding');
+    key('KeyE');
+    const returned = u.sim.s.t;
+    u.tick(.1);
+    assert(!u.story.onDeck && !u.waiting && u.sim.s.t - returned < .2 && u.player.comp === control,
+      'E did not restore the normal pace below deck');
   });
   await check('Act 2 loss and R retry return to boarding', () => {
     stage('act2'); lose(); key('KeyR'); const u = game();
@@ -135,6 +293,17 @@ run.onclick = async () => {
     assert(u.story.act === 3 && u.introUp && u.sim.clock() === '12:40:00', 'Act 3 retry failed');
     assert(JSON.stringify({ V: u.sim.s.V, doors: u.sim.s.doorOpen }) === before, 'checkpoint changed');
   });
+  await check('The salvage survey identifies the intake station for each flooded room', () => {
+    stage('act3-split'); key('KeyG');
+    const rows = [...frame.contentDocument.querySelectorAll('#salvage-survey tbody tr')];
+    try {
+      assert(rows.length === 3 && rows[0].cells[0].textContent.includes('Intake fitting in control room'),
+        'diesel intake is missing its control-room station');
+      assert(rows.slice(1).every(row => row.cells[0].textContent.includes('Intake fitting in diesel room')),
+        'motor or aft intake is missing its diesel-room station');
+      assert(rows[1].cells[3].textContent === 'Shut', 'isolated motor hatch was lost in the survey');
+    } finally { key('KeyG'); }
+  });
   await check('Tow reached through Act 3 has sea ambience and the detailed boat', async () => {
     stage('act3'); game().sim.advanceTo('14:23:00'); game().tick(.01); await sleep(1400);
     assert(game().exterior.towing && boatInfo().visible && game().audio.levels().sea > .1 && game().audio.output().rms > .001, 'tow model or sound missing');
@@ -143,9 +312,29 @@ run.onclick = async () => {
     stage('awash'); const initial = JSON.stringify(game().sim.s.V); lose(); key('KeyR'); const u = game();
     assert(u.story.act === 4 && u.introUp && u.sim.s.status === 'afloat' && JSON.stringify(u.sim.s.V) === initial, 'rescue retry failed');
   });
-  await check('Final R returns to the title', () => {
+  await check('The rescue records the pump and deck handoff before the dated dusk recovery', () => {
+    stage('awash');
+    const u = game(), aw = u.story.awash, hull = u.data.compartments.hull;
+    const diesel = u.sim.comps.findIndex(room => room.id === 'diesel');
+    assert(aw.takePump() && aw.rigPump(diesel, u.sim.comps[diesel].xC, 0), 'electric pump setup failed');
+    u.aim(hull.hatch.x_m, hull.floor_height_m + 1.4, 0);
+    key('KeyF'); key('KeyF');
+    assert(u.story.onDeck && aw.deckSupport && Number.isFinite(aw.handoffAt), 'rescue crew did not take over');
+    const lead = u.exterior.scene.getObjectByName('Abnaki power lead');
+    assert(lead?.visible && lead.getObjectByName('Outboard power cable'), 'the power lead is missing from the rescue deck');
+    for (let i = 0; i < 200 && u.story.awash; i++) u.tick(.5);
+    const doc = frame.contentDocument;
+    assert(u.exterior.towing && doc.querySelector('#caption').textContent.includes('8 June 1944'), 'missing dusk recovery');
+    assert(doc.querySelector('#prompt').style.display === 'none', 'hatch prompt leaked into the recovery shot');
+    key('Enter'); dismiss();
+    assert(u.story.act === 5 && doc.querySelector('#banner-title').textContent.includes('Bermuda'), 'recovery did not continue to Bermuda');
+    const report = doc.querySelector('#banner-text').textContent;
+    assert(report.includes('First electric pump') && report.includes('Diesel engine room') &&
+      report.includes('Handed off to the salvage crew') && report.includes('95.0 t reserve'), report);
+  });
+  await check('Final R returns to the main menu', () => {
     game().jump('final'); key('KeyR');
-    assert(game().introUp && frame.contentDocument.querySelector('#board-game'), 'final restart failed');
+    assert(game().menus.active && game().menus.state.screen === 'main', 'final restart failed');
   });
   await check('Restart title is silent', async () => {
     await sleep(3000); assert(game().audio.output().rms < .0001, 'boarding sounds leaked through the title');
