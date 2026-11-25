@@ -8,7 +8,7 @@ Run the local preview with Node.js:
 node tools/serve.mjs
 ```
 
-Open [the game](http://127.0.0.1:8505/). The browser needs access to jsDelivr for Three.js; no build step is required.
+Open [the game](https://thehillbeyondthisone.github.io/achtung/). The browser needs access to jsDelivr for Three.js; no build step is required.
 
 The engineering rooms use a Blender reconstruction based on photographs of U-505. The [interior notes](docs/INTERIOR.md) cover the sources, rebuild command, and flood demo.
 
